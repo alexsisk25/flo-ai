@@ -1,0 +1,30 @@
+# Walnut configuration — edit freely, then restart Walnut.
+
+[hotkeys]
+speak = "<ctrl>+<alt>+s"        # narrate selected text (press again to stop)
+dictate = "<ctrl>+<alt>+<space>" # toggle dictation into the frontmost app
+
+[tts]
+voice = ""   # empty = system default; run `say -v '?'` to list voices
+rate = 210   # words per minute (say's default is ~175)
+
+[stt]
+# Great accuracy, ~1.6 GB download, fast on Apple Silicon.
+# Smaller/faster alternative: "mlx-community/whisper-small-mlx" (~470 MB)
+model = "mlx-community/whisper-large-v3-turbo"
+language = "en"
+
+[vocabulary]
+# Names, acronyms, and jargon Whisper should recognize (used as hints).
+hints = []
+
+[replacements]
+# Transcript fix-ups, applied case-insensitively.
+"hub spot" = "HubSpot"
+# "hub spot" = "HubSpot"
+# "git hub" = "GitHub"
+
+[snippets]
+# Say exactly the trigger phrase and the expansion is typed instead.
+"insert my email" = "you@example.com"
+"insert sign off" = "Best,\nYour Name"

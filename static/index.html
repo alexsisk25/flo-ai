@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Walnut</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐿️</text></svg>">
+<style>
+:root{
+  /* neutral nature palette — sand / stone / bark / moss / clay / rust */
+  --bg:#efece4; --side:#e7e3d7; --card:#faf9f6; --card2:#f1eee6;
+  --border:#dcd6c7; --text:#2c2822; --muted:#6b6558; --dim:#8a8371;
+  --amber:#4e7d2e; --amber-dim:#3e6423; --amber-bg:#e9eedd;   /* moss (accent) */
+  --green:#2f6b46; --red:#a94d34;                             /* pine / rust */
+  --clay:#a76f4f;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font:15px/1.5 -apple-system,"Segoe UI",sans-serif;display:flex;min-height:100vh}
+h1{font-family:Georgia,"Times New Roman",serif;font-weight:600;font-size:34px;letter-spacing:.2px}
+h3.serif{font-family:Georgia,serif;font-weight:600}
+a{color:var(--amber)}
+button{font:inherit;cursor:pointer;border:1px solid var(--border);background:var(--card2);color:var(--text);border-radius:10px;padding:8px 14px}
+button:hover{border-color:var(--amber-dim)}
+button.primary{background:var(--amber);border-color:var(--amber);color:#fdfcf9;font-weight:600}
+button.danger{background:var(--red);border-color:var(--red);color:#fff}
+button.ghost{background:transparent}
+input,select,textarea{font:inherit;background:#fdfcf9;border:1px solid var(--border);color:var(--text);border-radius:10px;padding:9px 12px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--amber-dim)}
+/* sidebar */
+#side{width:210px;background:var(--side);border-right:1px solid var(--border);padding:20px 12px;display:flex;flex-direction:column;position:fixed;top:0;bottom:0}
+#side .logo{font-family:Georgia,serif;font-size:20px;letter-spacing:2px;padding:0 10px;margin-bottom:2px}
+#side .powered{color:var(--dim);font-size:12px;padding:0 10px;margin-bottom:22px}
+#side nav{display:flex;flex-direction:column;gap:2px}
+#side nav a{display:flex;align-items:center;gap:10px;color:var(--muted);text-decoration:none;padding:10px 12px;border-radius:10px;font-size:14px}
+#side nav a.active{background:var(--amber-bg);color:var(--amber)}
+#side nav a:hover:not(.active){background:#dfdacb;color:var(--text)}
+#side .foot{margin-top:auto;color:var(--dim);font-size:12px;padding:10px}
+/* main */
+#main{margin-left:210px;flex:1;padding:38px 46px;max-width:1180px}
+.sub{color:var(--muted);margin:6px 0 24px}
+.row{display:flex;align-items:center;gap:10px}
+.spread{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);border-radius:999px;padding:7px 14px;font-size:13px;color:var(--muted)}
+.chip b{color:var(--text)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px}
+.pill{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--amber-dim);color:var(--amber);border-radius:8px;padding:2px 9px;font-size:12px;background:var(--amber-bg)}
+.pill.plain{border-color:var(--border);color:var(--muted);background:transparent}
+.grid4{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.icon-sq{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;background:var(--amber-bg);border:1px solid #cfd0b6}
+.icon-sq.green{background:#e3ead9}
+.stat .label{color:var(--muted);font-size:13px;margin-top:12px}
+.stat .value{font-size:30px;font-weight:700;margin-top:2px}
+.stat .note{color:var(--dim);font-size:12px}
+.banner{border-radius:14px;padding:18px 20px;border:1px solid var(--border)}
+.banner.amber{background:linear-gradient(100deg,#eaeddb, #f2efe3 70%);border-color:#cfd0b6}
+.banner.gold{background:var(--card);border-color:var(--border)}
+.banner h4{font-family:Georgia,serif;color:var(--amber);font-size:15px}
+.banner p{color:var(--muted);font-size:13px;margin-top:4px}
+.kbd{background:#eae6d9;border:1px solid var(--border);border-radius:6px;padding:2px 8px;font-size:12px;color:var(--text)}
+.muted{color:var(--muted)} .dim{color:var(--dim)} .amber{color:var(--amber)} .green{color:var(--green)}
+.section-gap{margin-top:14px}
+.tabs{display:inline-flex;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:3px}
+.tabs button{border:0;background:transparent;color:var(--muted);padding:6px 14px;border-radius:8px}
+.tabs button.active{background:#e5e1d2;color:var(--text)}
+.entry{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-top:14px;display:flex;gap:16px}
+.entry .body{flex:1;min-width:0}
+.entry .transcript{background:#f4f2ea;border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-top:10px;max-height:150px;overflow:auto;white-space:pre-wrap;font-size:14px;color:#433d33}
+.entry .actions{display:flex;flex-direction:column;gap:8px;width:150px;flex-shrink:0}
+.entry .actions button{width:100%;font-size:13px}
+.list-row{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:13px 16px;margin-top:10px}
+.trigger{border:1px solid var(--amber-dim);color:var(--amber);background:var(--amber-bg);border-radius:8px;padding:3px 10px;font-size:13px;white-space:nowrap}
+.arrow{color:var(--dim);margin:0 10px}
+.x{cursor:pointer;color:var(--dim);border:0;background:none;font-size:15px;padding:2px 6px}
+.x:hover{color:var(--red)}
+.wordchip{display:inline-flex;align-items:center;gap:4px;background:var(--card2);border:1px solid var(--border);border-radius:999px;padding:5px 6px 5px 14px;margin:4px 6px 0 0}
+.ring{transform:rotate(-90deg)}
+.field{display:flex;flex-direction:column;gap:6px;margin-top:16px;max-width:460px}
+.field label{font-size:13px;color:var(--muted)}
+.hidden{display:none!important}
+.footer-note{text-align:center;color:var(--dim);font-size:12px;margin:34px 0 10px}
+/* shortcuts */
+.shortcut-row{display:flex;align-items:center;gap:16px;padding:18px 0}
+.shortcut-row + .shortcut-row{border-top:1px solid var(--border)}
+.shortcut-row .grow{flex:1;min-width:0}
+.shortcut-row .desc{color:var(--muted);font-size:13px;margin-top:2px}
+.keys{display:flex;align-items:center;gap:6px;min-height:34px}
+.keycap{display:inline-block;min-width:32px;text-align:center;padding:5px 10px;
+  background:#fdfcf9;border:1px solid #cfc9ba;border-bottom-width:3px;
+  border-radius:8px;font-size:14px;font-weight:600;color:var(--text)}
+.shortcut-row.recording .keys{outline:2px solid var(--amber);outline-offset:6px;border-radius:8px}
+.shortcut-row.recording .keycap{border-color:var(--amber-dim)}
+.hint{font-size:13px;color:var(--red);min-height:18px;margin-top:10px}
+#toast{position:fixed;bottom:26px;right:26px;background:var(--amber);color:#fdfcf9;
+  padding:11px 18px;border-radius:12px;font-weight:600;opacity:0;transition:opacity .25s;pointer-events:none}
+.count-note{color:var(--dim);font-size:12px;margin-top:8px}
+@media(max-width:900px){.grid2{grid-template-columns:1fr}.entry{flex-direction:column}.entry .actions{flex-direction:row;width:auto}}
+</style>
+</head>
+<body>
+<aside id="side">
+  <div class="logo">🐿️ WALNUT</div>
+  <div class="powered">Powered by you</div>
+  <nav id="nav">
+    <a href="#dashboard" data-page="dashboard">◉ Dashboard</a>
+    <a href="#dictionary" data-page="dictionary">T Dictionary</a>
+    <a href="#snippets" data-page="snippets">✂ Snippets</a>
+    <a href="#history" data-page="history">↺ History</a>
+    <a href="#shortcuts" data-page="shortcuts">⌘ Shortcuts</a>
+    <a href="#settings" data-page="settings">⚙ Settings</a>
+  </nav>
+  <div class="foot">100% local · $0/mo<br>No cloud. No tokens.</div>
+</aside>
+
+<main id="main">
+
+<!-- ======================= DASHBOARD ======================= -->
+<section id="page-dashboard">
+  <div class="spread">
+    <div>
+      <h1 id="greeting">Good afternoon</h1>
+      <div class="sub">Here's how Walnut has been helping you</div>
+    </div>
+    <div class="row">
+      <select id="period">
+        <option value="week">This week</option>
+        <option value="month">This month</option>
+        <option value="all">All time</option>
+      </select>
+      <button id="refresh" title="Refresh">⟳</button>
+    </div>
+  </div>
+
+  <div class="row" style="flex-wrap:wrap">
+    <span class="chip">🔥 Streak <b id="streak">–</b></span>
+    <span class="chip">🎙 Speaking <b id="speakwpm">–</b></span>
+    <span class="chip">⌨️ Typing <b id="typewpm">–</b></span>
+  </div>
+
+  <div class="banner gold section-gap spread" id="guide">
+    <div>
+      <h4 style="color:var(--text)">📖 Learn how to use Walnut</h4>
+      <p>Practice read-aloud first, then dictation and snippets. Watch the menu bar icon while recording.</p>
+      <p style="margin-top:8px">🔊 Read aloud <span class="kbd" id="kbd-speak">⌃⌥S</span>
+         &nbsp; ✦ Dictate <span class="kbd" id="kbd-dictate">⌃⌥␣</span></p>
+    </div>
+    <button class="x" onclick="dismissGuide()">✕</button>
+  </div>
+
+  <div class="card section-gap spread" style="border-color:#c5d2bc;background:#f3f6ee">
+    <div>
+      <div class="green" style="font-size:13px">🕐 Time Saved</div>
+      <div class="green" style="font-size:44px;font-weight:700;font-family:Georgia,serif" id="saved">0s</div>
+      <div style="font-size:13px" class="muted">vs typing at <span id="typewpm2">–</span> WPM (<a href="#settings">your speed</a>)</div>
+    </div>
+    <div style="text-align:center">
+      <svg width="96" height="96" viewBox="0 0 96 96">
+        <circle cx="48" cy="48" r="42" fill="none" stroke="#ddd7c8" stroke-width="7"/>
+        <circle id="ringfg" class="ring" cx="48" cy="48" r="42" fill="none" stroke="var(--green)"
+          stroke-width="7" stroke-linecap="round" stroke-dasharray="0 264" style="transform-origin:48px 48px"/>
+        <text x="48" y="54" text-anchor="middle" fill="var(--text)" font-size="18" font-weight="700" id="momentum">0%</text>
+      </svg>
+      <div class="dim" style="font-size:12px">This period's momentum</div>
+    </div>
+  </div>
+
+  <div class="banner amber section-gap">
+    <h4>✨ Make Walnut sound like <span style="font-style:italic">you</span></h4>
+    <p>Add words to your dictionary so transcriptions match your vocabulary. Create snippets for phrases you use often.</p>
+    <div class="row" style="margin-top:12px">
+      <button onclick="location.hash='dictionary'">Dictionary</button>
+      <button onclick="location.hash='snippets'">Snippets</button>
+    </div>
+  </div>
+
+  <div class="grid4 section-gap">
+    <div class="card stat"><div class="icon-sq">🔊</div>
+      <div class="label">Read-Back Sessions</div><div class="value" id="s-rb">0</div>
+      <div class="note">Text-to-speech</div></div>
+    <div class="card stat"><div class="icon-sq">🎙</div>
+      <div class="label">Dictation Sessions</div><div class="value" id="s-dic">0</div>
+      <div class="note">Voice-to-text</div></div>
+    <div class="card stat"><div class="icon-sq">📄</div>
+      <div class="label">Words Dictated</div><div class="value" id="s-words">0</div>
+      <div class="note">Total transcribed</div></div>
+    <div class="card stat"><div class="icon-sq green">⌨️</div>
+      <div class="label">Keystrokes Saved</div><div class="value" id="s-keys">0</div>
+      <div class="note">Characters you didn't type</div></div>
+  </div>
+
+  <div class="grid2 section-gap">
+    <div class="card">
+      <div class="spread"><h3 class="serif">Read-Back Activity</h3>
+        <span class="amber" style="font-size:13px"><span id="c-rb">0</span> sessions ↗</span></div>
+      <svg id="chart-rb" width="100%" height="140" preserveAspectRatio="none"></svg>
+      <div class="spread dim" style="font-size:11px"><span id="lbl-rb-a"></span><span id="lbl-rb-b"></span></div>
+    </div>
+    <div class="card">
+      <div class="spread"><h3 class="serif">Dictation Activity</h3>
+        <span class="amber" style="font-size:13px"><span id="c-dic">0</span> sessions ↗</span></div>
+      <svg id="chart-dic" width="100%" height="140" preserveAspectRatio="none"></svg>
+      <div class="spread dim" style="font-size:11px"><span id="lbl-dic-a"></span><span id="lbl-dic-b"></span></div>
+    </div>
+  </div>
+
+  <div class="card section-gap">
+    <div style="font-size:13px" class="amber">⚡ Performance Summary</div>
+    <div class="grid4" style="margin-top:14px">
+      <div><div class="value" style="font-size:26px;font-weight:700" id="p-active">0</div><div class="muted" style="font-size:13px">Active days</div></div>
+      <div><div class="value" style="font-size:26px;font-weight:700" id="p-longest">0</div><div class="muted" style="font-size:13px">Longest streak</div></div>
+      <div><div class="value" style="font-size:26px;font-weight:700" id="p-snip">0</div><div class="muted" style="font-size:13px">Snippet uses</div></div>
+      <div><div class="value" style="font-size:26px;font-weight:700" id="p-focus">0s</div><div class="muted" style="font-size:13px">Focus time</div></div>
+    </div>
+  </div>
+
+  <div class="footer-note">All data is stored locally on your device</div>
+</section>
+
+<!-- ======================= DICTIONARY ======================= -->
+<section id="page-dictionary" class="hidden">
+  <h1>Dictionary</h1>
+  <div class="sub">Teach Walnut your words — names, acronyms, jargon — so transcriptions match your vocabulary.</div>
+
+  <div class="card">
+    <h3 class="serif">Words</h3>
+    <p class="muted" style="font-size:13px;margin-top:4px">Whisper is biased toward recognizing these during dictation.</p>
+    <div class="row" style="margin-top:12px">
+      <input id="new-word" placeholder="Add a word or name…" style="flex:1" onkeydown="if(event.key==='Enter')addWord()">
+      <button class="primary" onclick="addWord()">+ Add</button>
+    </div>
+    <div id="word-list" style="margin-top:8px"></div>
+  </div>
+
+  <div class="card section-gap">
+    <h3 class="serif">Fix-ups</h3>
+    <p class="muted" style="font-size:13px;margin-top:4px">Automatic corrections applied to every transcript (case-insensitive).</p>
+    <div class="row" style="margin-top:12px">
+      <input id="new-wrong" placeholder="Whisper hears… (e.g. hub spot)" style="flex:1">
+      <span class="arrow">→</span>
+      <input id="new-right" placeholder="You mean… (e.g. HubSpot)" style="flex:1" onkeydown="if(event.key==='Enter')addRepl()">
+      <button class="primary" onclick="addRepl()">+ Add</button>
+    </div>
+    <div id="repl-list"></div>
+  </div>
+</section>
+
+<!-- ======================= SNIPPETS ======================= -->
+<section id="page-snippets" class="hidden">
+  <div class="spread">
+    <div>
+      <h1>Snippets</h1>
+      <div class="sub">Stop typing the same things over and over. Save it once. Say it. Walnut types it for you.</div>
+    </div>
+    <div class="row">
+      <button id="snip-toggle" class="primary" onclick="toggleSnippets()">⏻ On</button>
+      <button class="primary" onclick="showNewSnippet()">＋ New</button>
+    </div>
+  </div>
+
+  <div class="banner amber" id="snip-banner">
+    <div class="spread">
+      <div>
+        <h4>The things your keyboard shouldn't forget.</h4>
+        <p>Save your most-used text: emails, links, addresses, bios. Say the phrase. Walnut types it instantly, right where you need it.</p>
+        <p style="margin-top:10px"><span class="trigger">my calendar</span> <span class="arrow">→</span> <span class="muted">calendly.com/your-name/30min</span></p>
+        <p style="margin-top:6px"><span class="trigger">quick context</span> <span class="arrow">→</span> <span class="muted">Quick context: I lead platform engineering.</span></p>
+      </div>
+      <button class="x" onclick="this.closest('.banner').remove()">✕</button>
+    </div>
+  </div>
+
+  <div class="card section-gap hidden" id="snip-new">
+    <h3 class="serif">New snippet</h3>
+    <div class="field"><label>Say this phrase…</label><input id="snip-trigger" placeholder="insert my calendar"></div>
+    <div class="field" style="max-width:none"><label>…and Walnut types this</label>
+      <textarea id="snip-expansion" rows="3" placeholder="https://calendly.com/…"></textarea></div>
+    <div class="row" style="margin-top:14px">
+      <button class="primary" onclick="saveNewSnippet()">Save snippet</button>
+      <button class="ghost" onclick="hideNewSnippet()">Cancel</button>
+    </div>
+  </div>
+
+  <input id="snip-search" class="section-gap" placeholder="🔍 Search snippets…" style="width:100%" oninput="renderSnippets()">
+  <div id="snip-list"></div>
+</section>
+
+<!-- ======================= HISTORY ======================= -->
+<section id="page-history" class="hidden">
+  <div class="spread">
+    <div>
+      <h1>History</h1>
+      <div class="sub">Find, replay, and copy past Walnut sessions.</div>
+    </div>
+    <button onclick="loadHistory()">⟳ Refresh</button>
+  </div>
+
+  <div class="card">
+    <div class="spread">
+      <input id="hist-search" placeholder="🔍 Search history…" style="flex:1;max-width:420px" oninput="loadHistory()">
+      <div class="tabs" id="hist-tabs">
+        <button data-kind="" class="active">All</button>
+        <button data-kind="dictation">Dictation</button>
+        <button data-kind="readback">Readback</button>
+      </div>
+    </div>
+    <div class="spread count-note"><span id="hist-count">Showing 0 entries</span><span>Newest first</span></div>
+  </div>
+  <div id="hist-list"></div>
+</section>
+
+<!-- ======================= SHORTCUTS ======================= -->
+<section id="page-shortcuts" class="hidden">
+  <h1>Shortcuts</h1>
+  <div class="sub">Global hotkeys — they work in every app. Click <b>Change</b>, then press your new combination.</div>
+
+  <div class="card" style="padding:4px 22px">
+    <div class="shortcut-row" id="row-speak">
+      <div class="icon-sq">🔊</div>
+      <div class="grow"><b>Narrate selection</b>
+        <div class="desc">Reads whatever text you've selected aloud. Press again to stop.</div></div>
+      <div class="keys" id="keys-speak"></div>
+      <button id="btn-speak" onclick="startRecord('speak')">Change</button>
+    </div>
+    <div class="shortcut-row" id="row-dictate">
+      <div class="icon-sq">🎙</div>
+      <div class="grow"><b>Dictation</b>
+        <div class="desc">Start / stop voice typing into whatever app you're using.</div></div>
+      <div class="keys" id="keys-dictate"></div>
+      <button id="btn-dictate" onclick="startRecord('dictate')">Change</button>
+    </div>
+  </div>
+  <div class="hint" id="hk-hint"></div>
+  <div class="spread">
+    <span class="dim" style="font-size:13px">Shortcuts save automatically and work immediately — no restart needed.</span>
+    <button class="ghost" onclick="resetShortcuts()">Reset to defaults</button>
+  </div>
+</section>
+
+<!-- ======================= SETTINGS ======================= -->
+<section id="page-settings" class="hidden">
+  <h1>Settings</h1>
+  <div class="sub">Voice, speed, and the model behind dictation. Everything runs on this Mac.</div>
+
+  <div class="card">
+    <h3 class="serif">Narration</h3>
+    <div class="field"><label>Voice</label>
+      <div class="row"><select id="set-voice" style="flex:1"></select>
+      <button onclick="testVoice()">▶ Test</button></div>
+      <span class="dim" style="font-size:12px">Get better voices in System Settings → Accessibility → Spoken Content → Manage Voices (Siri &amp; Enhanced).</span>
+    </div>
+    <div class="field"><label>Speed: <b id="rate-label"></b> words per minute</label>
+      <input id="set-rate" type="range" min="120" max="360" step="10"></div>
+  </div>
+
+  <div class="card section-gap">
+    <h3 class="serif">Dictation</h3>
+    <div class="field"><label>Whisper model (all local)</label>
+      <select id="set-model">
+        <option value="mlx-community/whisper-large-v3-turbo">large-v3-turbo — best accuracy (1.6 GB)</option>
+        <option value="mlx-community/whisper-small-mlx">small — faster, lighter (470 MB)</option>
+        <option value="mlx-community/whisper-base-mlx">base — fastest (150 MB)</option>
+      </select></div>
+    <div class="field"><label>Language (blank = auto-detect)</label>
+      <input id="set-lang" placeholder="en"></div>
+  </div>
+
+  <div class="card section-gap">
+    <h3 class="serif">You</h3>
+    <div class="field"><label>Your typing speed (WPM) — used to compute Time Saved</label>
+      <input id="set-wpm" type="number" min="10" max="200">
+      <span class="dim" style="font-size:12px">Not sure? Take a 1-minute test at monkeytype.com and put the number here.</span></div>
+  </div>
+
+  <button class="primary section-gap" onclick="saveSettings()">Save settings</button>
+  <span id="set-status" class="green" style="margin-left:10px"></span>
+  <div class="footer-note">All data is stored locally on your device</div>
+</section>
+
+</main>
+<div id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const api = (url, opts) => fetch(url, opts ? {headers:{'Content-Type':'application/json'}, ...opts} : undefined).then(r => r.json());
+const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmtDur = s => { s = Math.round(s); if (s < 60) return s + 's';
+  const m = Math.floor(s/60); if (m < 60) return `${m}m ${s%60}s`;
+  return `${Math.floor(m/60)}h ${m%60}m`; };
+const pretty = hk => hk.replace('<ctrl>','⌃').replace('<alt>','⌥').replace('<cmd>','⌘')
+  .replace('<shift>','⇧').replace('<space>','␣').replace(/\+/g,'').toUpperCase();
+
+/* ---------- routing ---------- */
+const pages = ['dashboard','dictionary','snippets','history','shortcuts','settings'];
+function route(){
+  const page = (location.hash || '#dashboard').slice(1);
+  const p = pages.includes(page) ? page : 'dashboard';
+  pages.forEach(x => $(`#page-${x}`).classList.toggle('hidden', x !== p));
+  document.querySelectorAll('#nav a').forEach(a =>
+    a.classList.toggle('active', a.dataset.page === p));
+  ({dashboard: loadDashboard, dictionary: loadDictionary, snippets: loadSnippets,
+    history: loadHistory, shortcuts: loadShortcuts, settings: loadSettings})[p]();
+}
+window.addEventListener('hashchange', route);
+
+/* ---------- dashboard ---------- */
+function greeting(){
+  const h = new Date().getHours();
+  return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+}
+function dismissGuide(){ $('#guide').remove(); localStorage.setItem('guideDismissed','1'); }
+function sparkline(svg, data){
+  const el = $(svg), W = el.clientWidth || 480, H = 140, pad = 8;
+  const max = Math.max(1, ...data);
+  const pts = data.map((v,i)=>[pad + i*(W-2*pad)/Math.max(1,data.length-1), H-pad-(v/max)*(H-2*pad)]);
+  const line = pts.map(p=>p.join(',')).join(' ');
+  const area = `${pad},${H-pad} ${line} ${W-pad},${H-pad}`;
+  el.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  el.innerHTML = `<defs><linearGradient id="g${svg.slice(1)}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="var(--amber)" stop-opacity=".35"/>
+      <stop offset="1" stop-color="var(--amber)" stop-opacity="0"/></linearGradient></defs>
+    <polygon points="${area}" fill="url(#g${svg.slice(1)})"/>
+    <polyline points="${line}" fill="none" stroke="var(--amber)" stroke-width="2.5" stroke-linejoin="round"/>`;
+}
+async function loadDashboard(){
+  $('#greeting').textContent = greeting();
+  if (localStorage.getItem('guideDismissed') && $('#guide')) $('#guide').remove();
+  const d = await api('/api/dashboard?period=' + $('#period').value);
+  $('#streak').textContent = d.streak + (d.streak === 1 ? ' day' : ' days');
+  $('#speakwpm').textContent = d.speaking_wpm + ' WPM';
+  $('#typewpm').textContent = d.typing_wpm + ' WPM';
+  $('#typewpm2').textContent = d.typing_wpm;
+  $('#saved').textContent = fmtDur(d.time_saved_secs);
+  $('#momentum').textContent = d.momentum + '%';
+  $('#ringfg').setAttribute('stroke-dasharray', `${2.64*Math.min(100,d.momentum)} 264`);
+  $('#s-rb').textContent = d.readback_sessions;
+  $('#s-dic').textContent = d.dictation_sessions;
+  $('#s-words').textContent = d.words_dictated.toLocaleString();
+  $('#s-keys').textContent = d.keystrokes_saved.toLocaleString();
+  $('#c-rb').textContent = d.readback_sessions;
+  $('#c-dic').textContent = d.dictation_sessions;
+  $('#p-active').textContent = d.active_days;
+  $('#p-longest').textContent = d.longest_streak;
+  $('#p-snip').textContent = d.snippet_uses;
+  $('#p-focus').textContent = fmtDur(d.focus_secs);
+  sparkline('#chart-rb', d.chart.readback);
+  sparkline('#chart-dic', d.chart.dictation);
+  const L = d.chart.labels;
+  $('#lbl-rb-a').textContent = $('#lbl-dic-a').textContent = L[0] || '';
+  $('#lbl-rb-b').textContent = $('#lbl-dic-b').textContent = L[L.length-1] || '';
+  const s = await api('/api/settings');
+  $('#kbd-speak') && ($('#kbd-speak').textContent = pretty(s.hotkey_speak));
+  $('#kbd-dictate') && ($('#kbd-dictate').textContent = pretty(s.hotkey_dictate));
+}
+$('#period').addEventListener('change', loadDashboard);
+$('#refresh').addEventListener('click', loadDashboard);
+
+/* ---------- dictionary ---------- */
+async function loadDictionary(){
+  const words = await api('/api/words');
+  $('#word-list').innerHTML = words.map(w =>
+    `<span class="wordchip">${esc(w.word)}<button class="x" onclick="delWord(${w.id})">✕</button></span>`).join('')
+    || '<div class="dim section-gap">No words yet.</div>';
+  const reps = await api('/api/replacements');
+  $('#repl-list').innerHTML = reps.map(r =>
+    `<div class="list-row spread"><span><span class="trigger">${esc(r.wrong)}</span>
+     <span class="arrow">→</span>${esc(r.right)}</span>
+     <button class="x" onclick="delRepl(${r.id})">✕</button></div>`).join('')
+    || '<div class="dim section-gap">No fix-ups yet.</div>';
+}
+async function addWord(){
+  const w = $('#new-word').value.trim(); if (!w) return;
+  await api('/api/words', {method:'POST', body: JSON.stringify({word: w})});
+  $('#new-word').value = ''; loadDictionary();
+}
+async function delWord(id){ await api('/api/words/'+id, {method:'DELETE'}); loadDictionary(); }
+async function addRepl(){
+  const wrong = $('#new-wrong').value.trim(), right = $('#new-right').value.trim();
+  if (!wrong || !right) return;
+  await api('/api/replacements', {method:'POST', body: JSON.stringify({wrong, right})});
+  $('#new-wrong').value = $('#new-right').value = ''; loadDictionary();
+}
+async function delRepl(id){ await api('/api/replacements/'+id, {method:'DELETE'}); loadDictionary(); }
+
+/* ---------- snippets ---------- */
+let SNIPS = [], SNIPS_ON = true;
+async function loadSnippets(){
+  const d = await api('/api/snippets');
+  SNIPS = d.snippets; SNIPS_ON = d.enabled;
+  renderSnippets();
+}
+function renderSnippets(){
+  const t = $('#snip-toggle');
+  t.textContent = SNIPS_ON ? '⏻ On' : '⏻ Off';
+  t.classList.toggle('primary', SNIPS_ON);
+  const q = $('#snip-search').value.trim().toLowerCase();
+  const list = SNIPS.filter(s => !q || s.trigger.toLowerCase().includes(q)
+    || s.expansion.toLowerCase().includes(q));
+  $('#snip-list').innerHTML = list.map(s => `
+    <div class="list-row">
+      <div class="spread">
+        <span style="min-width:0"><span class="trigger">${esc(s.trigger)}</span>
+          <span class="arrow">→</span><span class="${s.enabled?'':'dim'}">${esc(s.expansion.split('\n')[0]).slice(0,90)}</span></span>
+        <span class="row">
+          <span class="dim" style="font-size:12px">${s.uses}× used</span>
+          <button class="ghost" style="padding:4px 10px;font-size:12px" onclick="toggleOne(${s.id})">${s.enabled?'Disable':'Enable'}</button>
+          <button class="x" onclick="delSnippet(${s.id})">✕</button>
+        </span>
+      </div>
+    </div>`).join('') || '<div class="dim section-gap">No snippets match.</div>';
+}
+function showNewSnippet(){ $('#snip-new').classList.remove('hidden'); $('#snip-trigger').focus(); }
+function hideNewSnippet(){ $('#snip-new').classList.add('hidden'); }
+async function saveNewSnippet(){
+  const trigger = $('#snip-trigger').value.trim(), expansion = $('#snip-expansion').value;
+  if (!trigger || !expansion.trim()) return;
+  await api('/api/snippets', {method:'POST', body: JSON.stringify({trigger, expansion})});
+  $('#snip-trigger').value = $('#snip-expansion').value = '';
+  hideNewSnippet(); loadSnippets();
+}
+async function delSnippet(id){ await api('/api/snippets/'+id, {method:'DELETE'}); loadSnippets(); }
+async function toggleOne(id){
+  const s = SNIPS.find(x => x.id === id);
+  await api('/api/snippets/'+id, {method:'PUT',
+    body: JSON.stringify({trigger: s.trigger, expansion: s.expansion, enabled: s.enabled ? 0 : 1})});
+  loadSnippets();
+}
+async function toggleSnippets(){
+  const d = await api('/api/snippets/toggle', {method:'POST'});
+  SNIPS_ON = d.enabled; renderSnippets();
+}
+
+/* ---------- history ---------- */
+let HIST_KIND = '';
+$('#hist-tabs').addEventListener('click', e => {
+  if (e.target.tagName !== 'BUTTON') return;
+  document.querySelectorAll('#hist-tabs button').forEach(b => b.classList.remove('active'));
+  e.target.classList.add('active');
+  HIST_KIND = e.target.dataset.kind;
+  loadHistory();
+});
+async function loadHistory(){
+  const q = encodeURIComponent($('#hist-search').value.trim());
+  const rows = await api(`/api/history?q=${q}&type=${HIST_KIND}`);
+  $('#hist-count').textContent = `Showing ${rows.length} entr${rows.length===1?'y':'ies'}`;
+  $('#hist-list').innerHTML = rows.map(r => {
+    const dt = new Date(r.ts*1000).toLocaleString([], {month:'short', day:'numeric',
+      year:'numeric', hour:'numeric', minute:'2-digit'});
+    const saved = r.type === 'dictation'
+      ? Math.max(0, Math.round(r.words / (window.TYPING_WPM||60) * 60 - r.duration)) : 0;
+    const kind = r.type === 'dictation' ? '🎙 Dictation' : '🔊 Readback';
+    return `<div class="entry">
+      <div class="body">
+        <div class="row" style="flex-wrap:wrap">
+          <span class="pill">${kind}</span>
+          <span class="dim" style="font-size:13px">${dt}</span>
+          <span class="pill plain">💻 Local</span>
+          <span class="dim" style="font-size:13px">${r.words} words / ${fmtDur(r.duration)}${saved?` / ${fmtDur(saved)} saved`:''}</span>
+          ${r.snippet ? '<span class="pill">✂ snippet</span>' : ''}
+        </div>
+        <div class="spread" style="margin-top:10px">
+          <span class="dim" style="font-size:11px;letter-spacing:1px">${r.type.toUpperCase()}</span>
+          <button style="padding:5px 10px;font-size:12px" onclick="copyText(${r.id}, this)">⧉ Copy</button>
+        </div>
+        <div class="transcript">${esc(r.text)}</div>
+      </div>
+      <div class="actions">
+        <button onclick="api('/api/history/${r.id}/replay',{method:'POST'})">▶ Replay</button>
+        ${r.audio_path ? `<button onclick="api('/api/history/${r.id}/reveal',{method:'POST'})">📁 Show in Finder</button>` : ''}
+        <button class="danger" onclick="delHistory(${r.id})">🗑 Delete</button>
+      </div>
+    </div>`;
+  }).join('') || '<div class="dim section-gap">No sessions yet. Dictate or narrate something!</div>';
+  window.HIST_ROWS = Object.fromEntries(rows.map(r => [r.id, r.text]));
+}
+async function copyText(id, btn){
+  await navigator.clipboard.writeText(window.HIST_ROWS[id]);
+  btn.textContent = '✓ Copied'; setTimeout(() => btn.textContent = '⧉ Copy', 1200);
+}
+async function delHistory(id){ await api('/api/history/'+id, {method:'DELETE'}); loadHistory(); }
+
+/* ---------- shortcuts ---------- */
+const KEY_SYMBOLS = {'<ctrl>':'⌃','<alt>':'⌥','<cmd>':'⌘','<shift>':'⇧',
+  '<space>':'Space','<enter>':'↩','<tab>':'⇥','<backspace>':'⌫','<delete>':'⌦',
+  '<up>':'↑','<down>':'↓','<left>':'←','<right>':'→'};
+let HOTKEYS = {}, RECORDING = null;
+
+function renderKeys(el, combo){
+  el.innerHTML = combo.split('+').map(t =>
+    `<span class="keycap">${esc(KEY_SYMBOLS[t] || t.replace(/[<>]/g,'').toUpperCase())}</span>`).join('');
+}
+async function loadShortcuts(){
+  const s = await api('/api/settings');
+  HOTKEYS = {speak: s.hotkey_speak, dictate: s.hotkey_dictate};
+  renderKeys($('#keys-speak'), HOTKEYS.speak);
+  renderKeys($('#keys-dictate'), HOTKEYS.dictate);
+}
+function stopRecord(){
+  if (!RECORDING) return;
+  $('#btn-'+RECORDING).textContent = 'Change';
+  $('#row-'+RECORDING).classList.remove('recording');
+  renderKeys($('#keys-'+RECORDING), HOTKEYS[RECORDING]);
+  $('#hk-hint').textContent = '';
+  RECORDING = null;
+}
+function startRecord(which){
+  stopRecord();
+  RECORDING = which;
+  $('#btn-'+which).textContent = 'Press keys…';
+  $('#row-'+which).classList.add('recording');
+  $('#keys-'+which).innerHTML = '<span class="dim" style="font-size:13px">Press your combination (Esc cancels)</span>';
+}
+function codeToKey(e){
+  const c = e.code;
+  if (/^Key[A-Z]$/.test(c)) return c[3].toLowerCase();
+  if (/^Digit\d$/.test(c)) return c[5];
+  if (/^F\d{1,2}$/.test(c)) return '<' + c.toLowerCase() + '>';
+  return {Space:'<space>', Enter:'<enter>', Tab:'<tab>', Backspace:'<backspace>',
+    Delete:'<delete>', ArrowUp:'<up>', ArrowDown:'<down>', ArrowLeft:'<left>',
+    ArrowRight:'<right>', Backquote:'`', Minus:'-', Equal:'=', BracketLeft:'[',
+    BracketRight:']', Backslash:'\\', Semicolon:';', Quote:"'", Comma:',',
+    Period:'.', Slash:'/'}[c] || null;
+}
+document.addEventListener('keydown', async e => {
+  if (!RECORDING) return;
+  e.preventDefault(); e.stopPropagation();
+  if (e.key === 'Escape') return stopRecord();
+  const mods = [e.ctrlKey && '<ctrl>', e.altKey && '<alt>', e.metaKey && '<cmd>',
+                e.shiftKey && '<shift>'].filter(Boolean);
+  const keysEl = $('#keys-'+RECORDING);
+  if (['Control','Alt','Meta','Shift'].includes(e.key)){
+    renderKeys(keysEl, mods.join('+') || '<ctrl>');  // live preview while holding
+    if (!mods.length) keysEl.innerHTML = '';
+    return;
+  }
+  const key = codeToKey(e);
+  if (!key) return;
+  if (!mods.length){
+    $('#hk-hint').textContent = 'Add at least one modifier (⌘ ⌃ ⌥ ⇧) so it doesn\'t fire while you type.';
+    return;
+  }
+  const combo = [...mods, key].join('+');
+  const other = RECORDING === 'speak' ? 'dictate' : 'speak';
+  if (combo === HOTKEYS[other]){
+    $('#hk-hint').textContent = 'That combination is already used by the other shortcut.';
+    return;
+  }
+  const which = RECORDING;
+  HOTKEYS[which] = combo;
+  stopRecord();
+  await api('/api/settings', {method:'PUT', body: JSON.stringify(
+    which === 'speak' ? {hotkey_speak: combo} : {hotkey_dictate: combo})});
+  renderKeys($('#keys-'+which), combo);
+  toast('Saved — active now');
+});
+async function resetShortcuts(){
+  await api('/api/settings', {method:'PUT', body: JSON.stringify({
+    hotkey_speak: '<ctrl>+<alt>+s', hotkey_dictate: '<ctrl>+<alt>+<space>'})});
+  toast('Reset to defaults');
+  loadShortcuts();
+}
+function toast(msg){
+  const t = $('#toast');
+  t.textContent = '✓ ' + msg;
+  t.style.opacity = 1;
+  setTimeout(() => t.style.opacity = 0, 1800);
+}
+
+/* ---------- settings ---------- */
+async function loadSettings(){
+  const [s, voices] = await Promise.all([api('/api/settings'), api('/api/voices')]);
+  window.TYPING_WPM = +s.typing_wpm;
+  $('#set-voice').innerHTML = '<option value="">System default</option>' +
+    voices.map(v => `<option value="${esc(v.name)}">${esc(v.name)} (${v.locale})</option>`).join('');
+  $('#set-voice').value = s.tts_voice || '';
+  $('#set-rate').value = s.tts_rate; $('#rate-label').textContent = s.tts_rate;
+  $('#set-model').value = s.stt_model;
+  $('#set-lang').value = s.stt_language;
+  $('#set-wpm').value = s.typing_wpm;
+}
+$('#set-rate').addEventListener('input', e => $('#rate-label').textContent = e.target.value);
+async function saveSettings(){
+  await api('/api/settings', {method:'PUT', body: JSON.stringify({
+    tts_voice: $('#set-voice').value, tts_rate: $('#set-rate').value,
+    stt_model: $('#set-model').value, stt_language: $('#set-lang').value.trim(),
+    typing_wpm: $('#set-wpm').value})});
+  window.TYPING_WPM = +$('#set-wpm').value;
+  $('#set-status').textContent = '✓ Saved';
+  setTimeout(() => $('#set-status').textContent = '', 2000);
+}
+async function testVoice(){
+  await api('/api/settings', {method:'PUT', body: JSON.stringify({
+    tts_voice: $('#set-voice').value, tts_rate: $('#set-rate').value})});
+  api('/api/test-voice', {method:'POST', body: JSON.stringify({})});
+}
+
+/* boot */
+api('/api/settings').then(s => { window.TYPING_WPM = +s.typing_wpm; route(); });
+</script>
+</body>
+</html>

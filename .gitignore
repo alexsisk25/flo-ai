@@ -1,0 +1,12 @@
+# local data — personal history, recordings, settings live here
+walnut.db
+recordings/
+.selftest.wav
+*.log
+
+# python
+.venv/
+__pycache__/
+
+# macos
+.DS_Store
