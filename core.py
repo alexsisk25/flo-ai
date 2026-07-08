@@ -55,12 +55,18 @@ _whisper_cache: dict = {"name": None, "model": None}
 
 
 def _whisper_model(name: str):
+    # libiomp5 (ctranslate2's OpenMP) segfaults intermittently on Intel Macs
+    # when left unconstrained — see SYSTRAN/faster-whisper#137. Cap threads.
+    import os
+    os.environ.setdefault("OMP_NUM_THREADS", "4")
+    os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
     from faster_whisper import WhisperModel
 
     name = _MODEL_ALIASES.get(name, name)
     if _whisper_cache["name"] != name:
         _whisper_cache["model"] = WhisperModel(name, device="cpu",
-                                               compute_type="int8")
+                                               compute_type="int8",
+                                               cpu_threads=4)
         _whisper_cache["name"] = name
     return _whisper_cache["model"]
 
