@@ -9,9 +9,9 @@ voice = ""   # empty = system default; run `say -v '?'` to list voices
 rate = 210   # words per minute (say's default is ~175)
 
 [stt]
-# Great accuracy, ~1.6 GB download, fast on Apple Silicon.
-# Smaller/faster alternative: "mlx-community/whisper-small-mlx" (~470 MB)
-model = "mlx-community/whisper-large-v3-turbo"
+# Great accuracy, ~1.6 GB download (faster-whisper, runs on CPU).
+# Smaller/faster alternatives: "small" (~460 MB), "base" (~140 MB)
+model = "large-v3-turbo"
 language = "en"
 
 [vocabulary]

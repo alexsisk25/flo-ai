@@ -13,7 +13,7 @@ RECORDINGS = HERE / "recordings"
 DEFAULTS = {
     "tts_voice": "",
     "tts_rate": "210",
-    "stt_model": "mlx-community/whisper-large-v3-turbo",
+    "stt_model": "large-v3-turbo",
     "stt_language": "en",
     "typing_wpm": "60",
     "hotkey_speak": "<ctrl>+<alt>+s",

@@ -42,6 +42,37 @@ def _normalize(text: str) -> str:
     return re.sub(r"[^\w\s]", "", text).strip().lower()
 
 
+# --------------------------------------------------------------- whisper
+# faster-whisper (CTranslate2, CPU) replaces mlx-whisper so Walnut runs on
+# Intel Macs too. Legacy MLX repo names in an existing walnut.db still work.
+
+_MODEL_ALIASES = {
+    "mlx-community/whisper-large-v3-turbo": "large-v3-turbo",
+    "mlx-community/whisper-small-mlx": "small",
+    "mlx-community/whisper-base-mlx": "base",
+}
+_whisper_cache: dict = {"name": None, "model": None}
+
+
+def _whisper_model(name: str):
+    from faster_whisper import WhisperModel
+
+    name = _MODEL_ALIASES.get(name, name)
+    if _whisper_cache["name"] != name:
+        _whisper_cache["model"] = WhisperModel(name, device="cpu",
+                                               compute_type="int8")
+        _whisper_cache["name"] = name
+    return _whisper_cache["model"]
+
+
+def transcribe(audio: np.ndarray, model: str,
+               language: str | None = None,
+               initial_prompt: str | None = None) -> str:
+    segments, _ = _whisper_model(model).transcribe(
+        audio, language=language or None, initial_prompt=initial_prompt)
+    return "".join(s.text for s in segments).strip()
+
+
 class Vocabulary:
     """Live view over the store's dictionary/snippets."""
 
@@ -133,12 +164,9 @@ class Core:
         return self.stream is not None
 
     def warm_up(self) -> None:
-        import mlx_whisper
-
         model = store.get("stt_model")
         log(f"Loading speech model {model}…")
-        mlx_whisper.transcribe(np.zeros(SAMPLE_RATE, dtype=np.float32),
-                               path_or_hf_repo=model)
+        transcribe(np.zeros(SAMPLE_RATE, dtype=np.float32), model)
         log("Speech model ready.")
 
     def toggle_dictate(self) -> None:
@@ -187,15 +215,12 @@ class Core:
                 return
             log(f"Transcribing {secs:.1f}s…")
             t0 = time.time()
-            import mlx_whisper
-
-            result = mlx_whisper.transcribe(
+            text = transcribe(
                 audio,
-                path_or_hf_repo=store.get("stt_model"),
+                store.get("stt_model"),
                 language=store.get("stt_language") or None,
                 initial_prompt=Vocabulary.initial_prompt(),
             )
-            text = result["text"].strip()
             text, used_snippet = Vocabulary.apply(text)
             log(f"({time.time() - t0:.1f}s) → {text!r}")
             if not text:

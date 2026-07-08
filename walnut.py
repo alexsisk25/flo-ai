@@ -6,7 +6,7 @@ and the dashboard at http://127.0.0.1:8765.
 
   * Narrate hotkey: reads the text you have selected in ANY app aloud.
   * Dictate hotkey: toggle recording; speech is transcribed locally
-    (mlx-whisper on Apple Silicon) and typed into the frontmost app.
+    (faster-whisper on CPU) and typed into the frontmost app.
   * Dashboard: stats, dictionary, snippets, history, shortcuts, settings.
 
 No cloud. No tokens. No subscription.
@@ -44,16 +44,16 @@ def self_test() -> int:
     audio, sr = sf.read(wav, dtype="float32")
     assert sr == SAMPLE_RATE
 
-    log("STT check: transcribing it back with mlx-whisper…")
-    import mlx_whisper
+    log("STT check: transcribing it back with faster-whisper…")
+    from core import transcribe
 
-    result = mlx_whisper.transcribe(
+    result = transcribe(
         audio,
-        path_or_hf_repo=store.get("stt_model"),
+        store.get("stt_model"),
         language="en",
         initial_prompt=Vocabulary.initial_prompt(),
     )
-    text, _ = Vocabulary.apply(result["text"].strip())
+    text, _ = Vocabulary.apply(result)
     log(f"Round-trip transcript: {text!r}")
     wav.unlink(missing_ok=True)
 
