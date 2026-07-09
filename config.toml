@@ -1,8 +1,11 @@
 # Walnut configuration.
 #
-# This file is read ONCE, on first run, to seed walnut.db. After that, edit
-# everything from the dashboard at http://127.0.0.1:8765 — changes apply live.
-# (To re-seed from this file, delete walnut.db and restart.)
+# Read ONCE, on first run, to seed walnut.db. After that everything lives in
+# the dashboard at http://127.0.0.1:8765 and changes apply live.
+# (To start over: delete walnut.db and restart Walnut.)
+#
+# Walnut ships blank on purpose. The examples below are commented out —
+# uncomment them, or just add your own from the dashboard.
 
 [hotkeys]
 speak = "<ctrl>+<alt>+s"    # narrate selected text (press again to stop)
@@ -24,16 +27,17 @@ backend = ""
 language = "en"
 
 [vocabulary]
-# Names, acronyms, and jargon Whisper should recognize (used as hints).
-# Replace these with your own — they are just examples.
-hints = ["Shopify", "SKU", "RMA", "Kubernetes", "Postgres"]
+# Names, acronyms, and jargon Whisper should recognise. These are fed to the
+# model as hints and rescue proper nouns on the smaller models.
+hints = []
+# hints = ["Kubernetes", "Postgres", "Anthropic", "SKU"]
 
 [replacements]
 # Transcript fix-ups, applied case-insensitively.
-"hub spot" = "HubSpot"
-"git hub" = "GitHub"
+# "hub spot" = "HubSpot"
+# "git hub" = "GitHub"
 
 [snippets]
-# Say exactly the trigger phrase and the expansion is typed instead.
-"insert my email" = "you@example.com"
-"insert sign off" = "Best,\nYour Name"
+# Say the trigger phrase exactly, and Walnut types the expansion instead.
+# "insert my email" = "you@example.com"
+# "insert sign off" = "Best,\nYour Name"

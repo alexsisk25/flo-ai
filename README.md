@@ -1,26 +1,40 @@
-# Walnut 🥜
+<div align="center">
 
-A local, free rebuild of commercial voice dictation tools
-and Wispr Flow — the two-way voice loop, running **100% on your Mac**.
+<img src="static/apple-touch-icon.png" width="96" alt="Walnut">
 
-Talk to any app and Walnut types what you said. Select text anywhere and Walnut
-reads it aloud. Nothing leaves the machine: no cloud, no API keys, no tokens,
-no subscription.
+# Walnut
 
-Walnut fits itself to whatever Mac it lands on:
+**Talk to your Mac. It types. Select anything. It reads.**
 
-| Your Mac | Engine | Runs on | Default model | Status |
-|---|---|---|---|---|
-| Apple Silicon (M1–M5) | `mlx-whisper` | GPU (Metal) | `large-v3-turbo` | tested |
-| Intel | `faster-whisper` | CPU (int8) | `small.en` | **implemented, unverified** |
+Local voice dictation and narration for macOS — the whole loop, on your own
+machine. No cloud, no API keys, no account, no subscription.
 
-You don't configure this. Walnut detects the chip, picks the engine, and picks
-a model that is actually pleasant to use on that hardware — the big model where
-the GPU makes it cheap, a small one where transcription lands on the CPU.
+`⌃⌥D` to dictate into any app · `⌃⌥S` to hear any selection read aloud
 
-> **Intel Macs:** the code path exists and its dependencies resolve, but Walnut
-> has never been run on Intel silicon. If you're on an Intel Mac you're the
-> first — please tell me what breaks. Everything else here is tested.
+<sub>MIT licensed · Apple Silicon & Intel · Python 3.12+ · ~1.6 GB model, downloaded once</sub>
+
+</div>
+
+<br>
+
+<div align="center">
+  <img src="docs/dashboard.png" width="880" alt="The Walnut dashboard">
+</div>
+
+<br>
+
+---
+
+## Why
+
+Commercial dictation tools are excellent and they all ship your voice somewhere
+else. Walnut does the same job with Whisper running on your own silicon. Your
+audio never leaves the machine, there is nothing to sign up for, and the whole
+thing is about 1,300 lines of Python you can read in an afternoon.
+
+It also reads back. Select a paragraph in any app, press `⌃⌥S`, and macOS's own
+speech engine narrates it. Two hotkeys, one loop: **your words in, your words
+out.**
 
 ## Install
 
@@ -30,145 +44,153 @@ cd walnut
 ./install.sh --app --login
 ```
 
-That installs [uv](https://docs.astral.sh/uv/) if you don't have it, pulls
-dependencies, runs a self-test, builds `Walnut.app`, and starts Walnut at
-login. Every flag is optional — bare `./install.sh` just sets up the code.
+That installs [uv](https://docs.astral.sh/uv/) if you need it, resolves
+dependencies, runs a self-test, builds `Walnut.app`, and starts Walnut at login.
+Every flag is optional — bare `./install.sh` just sets up the code.
 
-| Flag | What it adds |
-|---|---|
-| *(none)* | dependencies + self-test. Run with `uv run walnut.py`. |
+| Flag | Adds |
+|:--|:--|
+| *(none)* | dependencies + self-test. Run it with `uv run walnut.py`. |
 | `--app` | `Walnut.app` in /Applications — double-click, Spotlight, Launchpad. |
 | `--login` | starts Walnut automatically at login. |
-| `--uninstall` | removes the app and the login item. Keeps your data. |
+| `--uninstall` | removes the app and the login item. Your data stays. |
 
-A squirrel appears in the menu bar and the dashboard lives at
+A squirrel appears in the menu bar. The dashboard lives at
 **http://127.0.0.1:8765**.
 
-`Walnut.app` is a thin launcher, not a frozen bundle: it runs this repo through
-`uv`. Pull new code and the app picks it up — nothing to rebuild. If Walnut is
-already running, opening the app just shows the dashboard instead of starting a
-second copy.
+> **First run downloads the speech model** — about 1.6 GB on Apple Silicon,
+> 460 MB on Intel. Once, ever. The dashboard shows a banner while it works.
 
-### macOS permissions (once)
+### Grant one permission
 
-Walnut cannot grant these for you — but it will tell you when one is missing,
-in the menu bar and on the dashboard, rather than pretending to work.
+macOS requires **Accessibility** for global hotkeys and for typing into other
+apps. Walnut cannot grant it for you.
 
-1. **Accessibility** — System Settings → Privacy & Security → Accessibility →
-   add Walnut. Needed for global hotkeys and typing into other apps.
-   **Restart Walnut afterwards.** Without it the hotkeys register and never
-   fire; Walnut detects this and says so.
-2. **Microphone** — macOS prompts on first dictation. Allow.
-3. **Input Monitoring** — only if hotkeys still don't fire.
+> System Settings → Privacy & Security → Accessibility → add **Walnut** → restart Walnut
 
-The first launch downloads the speech model (~1.6 GB on Apple Silicon, 460 MB
-on Intel), once. The dashboard shows a banner while it does.
+Without it the hotkeys register and silently never fire — so Walnut checks, and
+tells you, in the menu bar and on the dashboard. It will not pretend to work.
 
-Which binary do you grant? Whatever launches Walnut: your terminal when you run
-it by hand, `uv` when it starts at login, `Walnut.app` when you double-click it.
-Granting all three is fine.
+The microphone prompt appears the first time you dictate. Click Allow.
 
-## Use it
+## It fits itself to your Mac
 
-| Hotkey | Action |
-|---|---|
-| `⌃⌥S` | Narrate the selected text in ANY app. Press again to stop. |
-| `⌃⌥D` | Toggle dictation: chime → speak → chime → transcript is typed. |
+You configure nothing. Walnut detects the chip, picks the engine, and picks a
+model that is genuinely pleasant on that hardware.
 
-Both are re-bindable on the dashboard's **Shortcuts** page, live, no restart.
-(Dictation is `⌃⌥D`, not `⌃⌥Space` — macOS uses that to switch input sources.)
+| Your Mac | Engine | Runs on | Default model | Status |
+|:--|:--|:--|:--|:--|
+| Apple Silicon (M1–M5) | `mlx-whisper` | GPU (Metal) | `large-v3-turbo` | tested |
+| Intel | `faster-whisper` | CPU, int8 | `small.en` | **implemented, unverified** |
+
+Walnut stores one canonical model name and translates it per engine, so the same
+`walnut.db` works if you carry it between an Intel and an M-series Mac.
+
+> **Intel Macs:** the code path exists and its dependencies resolve, but Walnut
+> has never actually been run on Intel silicon. If that's you, you're the first
+> — please open an issue with whatever breaks. Everything else here is tested.
+
+## The two hotkeys
+
+| Hotkey | What happens |
+|:--|:--|
+| `⌃⌥D` | Chime. Speak. Chime. Your words are typed into the frontmost app. |
+| `⌃⌥S` | Whatever text you have selected, anywhere, is read aloud. Press again to stop. |
+
+Both are re-bindable on the **Shortcuts** page — live, no restart. Dictation is
+`⌃⌥D` rather than `⌃⌥Space` because macOS uses that to switch input sources.
 
 ## The dashboard
 
-- **Dashboard** — streak, speaking vs typing WPM, time saved, words dictated,
-  keystrokes saved, activity charts.
-- **Dictionary** — words Whisper should know (names, acronyms) and fix-ups
-  (`"hub spot"` → `HubSpot`). Dictionary entries are fed to Whisper as hints,
-  which genuinely rescues proper nouns on the smaller models.
-- **Snippets** — say a phrase, Walnut types the expansion.
-- **History** — every session: search, copy, **Replay** (dictations replay the
-  original audio; press again to stop), Show in Finder, delete.
-- **Settings** — voice, speed, language, typing WPM, and the model/engine
-  picker, which shows what your Mac chose and flags models that will be slow
-  on it.
+<table>
+<tr><td width="150"><b>Dashboard</b></td><td>Streak, speaking vs typing WPM, time saved, words dictated, keystrokes you didn't type, activity charts.</td></tr>
+<tr><td><b>Dictionary</b></td><td>Words Whisper should know — names, acronyms, jargon — plus fix-ups like <code>"hub spot"</code> → <code>HubSpot</code>. Hints are fed to the model, which rescues proper nouns on the smaller ones.</td></tr>
+<tr><td><b>Snippets</b></td><td>Say a phrase, Walnut types the expansion. Your email, your sign-off, that URL you can never remember.</td></tr>
+<tr><td><b>History</b></td><td>Every session: search, copy, replay the original audio, reveal in Finder, delete.</td></tr>
+<tr><td><b>Settings</b></td><td>Voice, speed, language, typing WPM, engine, model — annotated with what your Mac chose and which models will be slow on it.</td></tr>
+</table>
 
-All data lives in `walnut.db` (SQLite) next to the code. It never leaves.
+Walnut ships blank. No sample vocabulary, no snippets — make it yours.
 
 ## Choosing a model
 
-The Settings page lists these; sizes are the download.
+Sizes are the download. All of them run entirely on your machine.
 
 | Model | Size | Notes |
-|---|---|---|
-| `large-v3-turbo` | 1.6 GB | Best accuracy, multilingual. Great on Apple Silicon, slow on Intel. |
+|:--|:--|:--|
+| `large-v3-turbo` | 1.6 GB | Best accuracy, multilingual. Superb on Apple Silicon, slow on Intel. |
 | `medium.en` | 1.5 GB | Very accurate English. Heavy on Intel. |
 | `small.en` | 460 MB | The sweet spot on Intel. |
 | `base.en` | 140 MB | Fastest. Fumbles names — lean on the Dictionary. |
 | `small` / `base` | 460 / 140 MB | Multilingual equivalents. |
 
-Models download on first use and are cached by Hugging Face under
-`~/.cache/huggingface`.
+Models are cached by Hugging Face under `~/.cache/huggingface`. You can pin the
+engine on the Settings page if you want to force `faster-whisper` on Apple
+Silicon — useful for comparing.
 
-Walnut stores one canonical name (`small.en`) and translates it per engine, so
-the same `walnut.db` works if you move it between an Intel and an M-series Mac.
+## Privacy
 
-You can pin the engine on the Settings page (or `backend` in `config.toml`) if
-you want to force `faster-whisper` on Apple Silicon — useful for comparing.
+Everything is local. There is no server, no telemetry, and no account.
 
-## Troubleshooting
+- Transcripts and settings live in `walnut.db` (SQLite), next to the code.
+- Dictation audio lives in `recordings/` — capped at the **newest 3 clips** by
+  default, configurable, `0` to keep none.
+- The dashboard binds `127.0.0.1` only, and refuses any request whose `Host`
+  isn't loopback, so a web page you visit can't reach it.
+- The single network call Walnut ever makes is downloading the Whisper model
+  from Hugging Face, once.
+
+## When something breaks
 
 ```sh
-uv run walnut.py --doctor        # chip, engine, model, permissions, log path
-uv run walnut.py --test          # end-to-end check, no mic needed. Two PASS lines.
+uv run walnut.py --doctor    # chip, engine, model, permissions, paths, log
+uv run walnut.py --test      # end-to-end check, no mic needed
 uv run walnut.py --version
-uv run --group dev pytest -q     # the regression suite
 ```
 
-`--doctor` is the first thing to run and the first thing to paste when asking
-for help. It exits non-zero if Accessibility is missing.
+`--doctor` is the first thing to run and the first thing to paste into an issue.
+It exits non-zero if Accessibility is missing.
 
-`--test` runs against a *copy* of your database, so it never touches your data.
+Hotkeys doing nothing is almost always Accessibility — granted to the wrong
+binary, or not at all. Whatever launches Walnut is what needs the permission:
+your terminal if you run it by hand, `uv` at login, `Walnut.app` if you
+double-click it. Granting all three is fine.
 
-Every test in `tests/` is a bug Walnut actually shipped — a fix-up containing a
-backslash that killed all dictation, a hotkey that crash-looped the app, leaked
-database handles. If you change something and one fails, it is telling you the
-truth.
+Logs go to `/tmp/walnut.log` when Walnut starts at login.
 
-Hotkeys silently doing nothing is almost always Accessibility permission not
-granted, or granted to the wrong binary (your terminal when you run Walnut by
-hand, `uv` when it starts at login).
-
-## Start at login
+## Development
 
 ```sh
-./install.sh --login      # enable
-./install.sh --uninstall  # disable (keeps walnut.db and recordings)
+uv run --group dev pytest -q     # 56 tests
 ```
 
-Logs go to `/tmp/walnut.log`. The agent has `KeepAlive` on, so it relaunches
-if it crashes.
+Every test in `tests/` is a bug Walnut actually shipped: a dictionary fix-up
+containing a backslash that silently killed all dictation, a hotkey that
+crash-looped the app, leaked SQLite handles, a prune that deleted the recording
+it was in the middle of saving. If one fails, it is telling you the truth.
 
-Walnut.app is signed ad-hoc, not notarized. That's invisible to you because you
-built it locally. If you ever hand someone the built `.app` instead of the repo,
-Gatekeeper will block it — send them the repo.
-
-## Files
+`tests/test_first_run.py` forces the state a stranger's Mac is in — permission
+denied, empty database, model still downloading. Two crash-loop bugs shipped
+because nothing ever did that.
 
 ```
-walnut.py   entry point, --test, --doctor   core.py    narration/dictation/hotkeys
-stt.py      engine + model selection        store.py   SQLite (settings/history/…)
-app.py      menu bar app (rumps)            server.py  Flask API
-install.sh  installer                       static/index.html  the dashboard
+walnut.py    entry point, --test, --doctor    core.py         dictation, narration, hotkeys
+stt.py       engine + model selection         store.py        SQLite: settings, history, stats
+permissions.py  macOS Accessibility           server.py       Flask API
+app.py       menu bar app (rumps)             overlay.py      the floating recording pill
+install.sh   installer                        static/index.html  the dashboard
 ```
 
 `config.toml` is read once, on first run, to seed the database. After that the
-dashboard is the source of truth. Delete `walnut.db` to re-seed.
+dashboard is the source of truth. Delete `walnut.db` to start over.
 
 ## Requirements
 
-macOS (uses the built-in `say` and `afplay`), Python 3.12 or 3.13 — `uv`
-handles Python for you.
+macOS — Walnut uses the built-in `say` and `afplay`. Python 3.12 or 3.13, which
+`uv` handles for you.
 
 ## License
 
-MIT. See [LICENSE](LICENSE). Take it, change it, ship it.
+[MIT](LICENSE). Take it, change it, ship it.
+
+<div align="center"><sub>❦</sub></div>
