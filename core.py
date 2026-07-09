@@ -12,6 +12,7 @@ import time
 
 import numpy as np
 
+import permissions
 import stt
 import store
 
@@ -94,6 +95,10 @@ class Core:
         self.lock = threading.Lock()
         self.on_state = lambda state: None  # 'idle' | 'recording' | 'busy'
         self.on_level = lambda rms: None    # mic level while recording
+        # 'loading' until warm_up finishes. On a fresh machine that means a
+        # ~1.6 GB download, during which the app otherwise looks inert.
+        self.model_state = "loading"
+        self.model_error = None
 
     # ------------------------------------------------------------ audio out
     # Two ways Walnut makes noise: `say` (narration) and `afplay` (replaying a
@@ -186,8 +191,16 @@ class Core:
         info = stt.describe(store.get("stt_backend"))
         model = stt.canonical(store.get("stt_model"))
         log(f"{info['chip']} detected → {info['backend']} on {info['accelerator']}")
-        log(f"Loading speech model {model}… (first run downloads it)")
-        transcribe(np.zeros(SAMPLE_RATE, dtype=np.float32), model)
+        log(f"Loading speech model {model}… (first run downloads it, ~1.6 GB)")
+        self.model_state = "loading"
+        try:
+            transcribe(np.zeros(SAMPLE_RATE, dtype=np.float32), model)
+        except Exception as e:
+            self.model_state = "error"
+            self.model_error = f"{type(e).__name__}: {e}"
+            log(f"Speech model failed to load: {self.model_error}")
+            raise
+        self.model_state = "ready"
         log("Speech model ready.")
 
     def toggle_dictate(self) -> None:
@@ -341,6 +354,15 @@ class HotkeyManager:
             self.listener = keyboard.GlobalHotKeys({speak: on_speak,
                                                     dictate: on_dictate})
             self.listener.start()
+            # pynput binds happily without Accessibility and then never fires.
+            # Saying "Hotkeys active" here would be a lie, and it was the single
+            # most common way Walnut appeared broken to a new user.
+            if not permissions.accessibility_trusted():
+                log(f"Hotkeys registered ({speak}, {dictate}) but they will NOT "
+                    f"fire: Walnut has no Accessibility permission.")
+                log("Fix: System Settings → Privacy & Security → Accessibility, "
+                    "add Walnut (or your terminal), then restart Walnut.")
+                return
         except Exception as e:
             # e.g. the two combos collide, or macOS refuses the tap
             self.listener = None

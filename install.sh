@@ -144,6 +144,13 @@ fi
 [ -x "\$UV" ] || UV="\$(command -v uv 2>/dev/null)"
 [ -x "\$UV" ] || { /usr/bin/osascript -e 'display alert "Walnut" message "uv not found. Run ./install.sh in the walnut repo."'; exit 1; }
 
+# The bundle stores an absolute path. If the repo moved, say so rather than
+# failing with a silent `cd` error.
+if [ ! -f "\$REPO/walnut.py" ]; then
+  /usr/bin/osascript -e 'display alert "Walnut" message "The Walnut folder moved or was deleted. Re-run ./install.sh --app from its new location."'
+  exit 1
+fi
+
 cd "\$REPO" || exit 1
 exec "\$UV" run --project "\$REPO" "\$REPO/walnut.py"
 LAUNCH_EOF
@@ -181,10 +188,14 @@ uv sync
 # get faster-whisper alone. pyproject.toml decides via a platform marker, so
 # there is nothing to choose here.
 bold "Checking what Walnut found on this Mac…"
-uv run walnut.py --doctor
+# --doctor exits 1 when Accessibility isn't granted yet, which is the normal
+# state during a first install. Report it, don't abort on it.
+uv run walnut.py --doctor || true
 
 # ---------------------------------------------------------------- self-test
-bold "Running the self-test (first run downloads the speech model)…"
+bold "Running the self-test."
+bold "The first run downloads the speech model — about 1.6 GB on Apple Silicon,"
+bold "460 MB on Intel. It happens once, and it is cached for good."
 if uv run walnut.py --test; then
   bold "Self-test passed."
 else

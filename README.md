@@ -9,14 +9,18 @@ no subscription.
 
 Walnut fits itself to whatever Mac it lands on:
 
-| Your Mac | Engine | Runs on | Default model |
-|---|---|---|---|
-| Apple Silicon (M1–M5) | `mlx-whisper` | GPU (Metal) | `large-v3-turbo` |
-| Intel | `faster-whisper` | CPU (int8) | `small.en` |
+| Your Mac | Engine | Runs on | Default model | Status |
+|---|---|---|---|---|
+| Apple Silicon (M1–M5) | `mlx-whisper` | GPU (Metal) | `large-v3-turbo` | tested |
+| Intel | `faster-whisper` | CPU (int8) | `small.en` | **implemented, unverified** |
 
 You don't configure this. Walnut detects the chip, picks the engine, and picks
 a model that is actually pleasant to use on that hardware — the big model where
 the GPU makes it cheap, a small one where transcription lands on the CPU.
+
+> **Intel Macs:** the code path exists and its dependencies resolve, but Walnut
+> has never been run on Intel silicon. If you're on an Intel Mac you're the
+> first — please tell me what breaks. Everything else here is tested.
 
 ## Install
 
@@ -47,13 +51,18 @@ second copy.
 
 ### macOS permissions (once)
 
-Walnut cannot grant these for you.
+Walnut cannot grant these for you — but it will tell you when one is missing,
+in the menu bar and on the dashboard, rather than pretending to work.
 
 1. **Accessibility** — System Settings → Privacy & Security → Accessibility →
-   add your terminal. Needed for global hotkeys and typing into other apps.
-   **Restart Walnut afterwards.**
+   add Walnut. Needed for global hotkeys and typing into other apps.
+   **Restart Walnut afterwards.** Without it the hotkeys register and never
+   fire; Walnut detects this and says so.
 2. **Microphone** — macOS prompts on first dictation. Allow.
 3. **Input Monitoring** — only if hotkeys still don't fire.
+
+The first launch downloads the speech model (~1.6 GB on Apple Silicon, 460 MB
+on Intel), once. The dashboard shows a banner while it does.
 
 Which binary do you grant? Whatever launches Walnut: your terminal when you run
 it by hand, `uv` when it starts at login, `Walnut.app` when you double-click it.
@@ -64,9 +73,10 @@ Granting all three is fine.
 | Hotkey | Action |
 |---|---|
 | `⌃⌥S` | Narrate the selected text in ANY app. Press again to stop. |
-| `⌃⌥Space` | Toggle dictation: chime → speak → chime → transcript is typed. |
+| `⌃⌥D` | Toggle dictation: chime → speak → chime → transcript is typed. |
 
 Both are re-bindable on the dashboard's **Shortcuts** page, live, no restart.
+(Dictation is `⌃⌥D`, not `⌃⌥Space` — macOS uses that to switch input sources.)
 
 ## The dashboard
 
@@ -108,10 +118,14 @@ you want to force `faster-whisper` on Apple Silicon — useful for comparing.
 ## Troubleshooting
 
 ```sh
-uv run walnut.py --doctor        # what chip, engine, and model did Walnut find?
+uv run walnut.py --doctor        # chip, engine, model, permissions, log path
 uv run walnut.py --test          # end-to-end check, no mic needed. Two PASS lines.
+uv run walnut.py --version
 uv run --group dev pytest -q     # the regression suite
 ```
+
+`--doctor` is the first thing to run and the first thing to paste when asking
+for help. It exits non-zero if Accessibility is missing.
 
 `--test` runs against a *copy* of your database, so it never touches your data.
 
@@ -154,3 +168,7 @@ dashboard is the source of truth. Delete `walnut.db` to re-seed.
 
 macOS (uses the built-in `say` and `afplay`), Python 3.12 or 3.13 — `uv`
 handles Python for you.
+
+## License
+
+MIT. See [LICENSE](LICENSE). Take it, change it, ship it.

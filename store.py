@@ -27,7 +27,9 @@ DEFAULTS = {
     # forever and cost nothing; the audio is what fills the drive. 0 = none.
     "recordings_keep": "3",
     "hotkey_speak": "<ctrl>+<alt>+s",
-    "hotkey_dictate": "<ctrl>+<alt>+<space>",
+    # NOT ⌃⌥Space: macOS binds that to "Select next source in Input menu" for
+    # anyone with two keyboard layouts. Existing databases keep their own value.
+    "hotkey_dictate": "<ctrl>+<alt>+d",
     "snippets_enabled": "1",
     "port": "8765",
 }

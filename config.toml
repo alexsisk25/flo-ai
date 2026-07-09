@@ -5,8 +5,9 @@
 # (To re-seed from this file, delete walnut.db and restart.)
 
 [hotkeys]
-speak = "<ctrl>+<alt>+s"        # narrate selected text (press again to stop)
-dictate = "<ctrl>+<alt>+<space>" # toggle dictation into the frontmost app
+speak = "<ctrl>+<alt>+s"    # narrate selected text (press again to stop)
+dictate = "<ctrl>+<alt>+d"  # toggle dictation into the frontmost app
+# Avoid <ctrl>+<alt>+<space>: macOS uses it to switch input sources.
 
 [tts]
 voice = ""   # empty = system default; run `say -v '?'` to list voices

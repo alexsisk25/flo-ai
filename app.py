@@ -8,6 +8,7 @@ import rumps
 
 import core
 import overlay
+import permissions
 import server
 import store
 
@@ -43,8 +44,8 @@ class WalnutApp(rumps.App):
             webbrowser.open(f"http://127.0.0.1:{self.port}")
             raise SystemExit(0)
 
-        speak = store.get("hotkey_speak")
-        dictate = store.get("hotkey_dictate")
+        speak = store.get_valid("hotkey_speak")
+        dictate = store.get_valid("hotkey_dictate")
         self.menu = [
             rumps.MenuItem("Open Walnut Dashboard", callback=self.open_dashboard),
             None,
@@ -55,6 +56,16 @@ class WalnutApp(rumps.App):
             rumps.MenuItem("Stop Narration", callback=self.menu_stop),
             None,
         ]
+
+        # The hotkeys are dead without Accessibility, and pynput won't say so.
+        # Put the truth where someone looks when nothing happens: the menu.
+        if not permissions.accessibility_trusted():
+            self.menu.insert(0, rumps.MenuItem(
+                "⚠️  Grant Accessibility Permission",
+                callback=self.fix_permissions))
+            self.menu.insert(1, None)
+            core.log("Accessibility permission missing — hotkeys will not fire.")
+            permissions.request_accessibility()   # shows the system dialog once
 
         threading.Thread(target=self._guarded, args=(self.core.warm_up,),
                          daemon=True).start()
@@ -89,6 +100,14 @@ class WalnutApp(rumps.App):
 
     def open_dashboard(self, _):
         webbrowser.open(f"http://127.0.0.1:{self.port}")
+
+    def fix_permissions(self, _):
+        permissions.open_accessibility_settings()
+        rumps.alert(
+            title="Grant Accessibility to Walnut",
+            message="Add Walnut (or the terminal you launched it from) under "
+                    "Privacy & Security → Accessibility, then quit and reopen "
+                    "Walnut.\n\nWithout it, the hotkeys register but never fire.")
 
     def menu_dictate(self, _):
         threading.Thread(target=self.core.toggle_dictate, daemon=True).start()

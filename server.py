@@ -8,6 +8,7 @@ from pathlib import Path
 
 from flask import Flask, jsonify, request, send_from_directory
 
+import permissions
 import stt
 import store
 
@@ -244,6 +245,25 @@ def system():
     info = stt.describe(store.get("stt_backend"))
     info["models"] = stt.catalog(info["backend"])
     return jsonify(info)
+
+
+@app.route("/api/status")
+def status():
+    """Everything that could be silently wrong right now."""
+    perms = permissions.summary()
+    return jsonify({
+        "accessibility": perms["accessibility"],
+        "accessibility_hint": perms["hint"],
+        "model_state": CORE.model_state if CORE else "unknown",
+        "model_error": CORE.model_error if CORE else None,
+        "model": stt.canonical(store.get("stt_model")),
+    })
+
+
+@app.route("/api/permissions/open", methods=["POST"])
+def permissions_open():
+    permissions.open_accessibility_settings()
+    return jsonify({"ok": True})
 
 
 @app.route("/api/voices")

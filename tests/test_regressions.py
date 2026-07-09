@@ -260,6 +260,69 @@ def test_system_endpoint_reports_hardware(client):
     assert sum(m["recommended"] for m in d["models"]) == 1
 
 
+def test_status_endpoint_reports_permissions_and_model(client):
+    d = client.get("/api/status").get_json()
+    assert set(d) >= {"accessibility", "model_state", "model"}
+    assert d["model_state"] in ("loading", "ready", "error", "unknown")
+
+
+def test_status_surfaces_missing_accessibility(client, monkeypatch):
+    """The modal first-run failure: hotkeys register but never fire. The app
+    must say so rather than printing 'Hotkeys active'."""
+    import permissions
+    import server
+
+    monkeypatch.setattr(server.permissions, "summary", lambda: {
+        "accessibility": False, "hint": "grant it"})
+    d = client.get("/api/status").get_json()
+    assert d["accessibility"] is False
+    assert d["accessibility_hint"] == "grant it"
+
+
+def test_hotkeys_active_is_not_logged_without_permission(db, capsys, monkeypatch):
+    import core
+
+    monkeypatch.setattr(core.permissions, "accessibility_trusted", lambda: False)
+    hk = core.HotkeyManager(core.Core())
+    hk.start()
+    out = capsys.readouterr().out
+    assert "Hotkeys active" not in out          # the old lie
+    assert "will NOT fire" in out               # the new truth
+    hk.stop()
+
+
+def test_default_dictate_hotkey_avoids_macos_input_switcher(db):
+    """⌃⌥Space is 'Select next source in Input menu' for anyone with two
+    keyboard layouts."""
+    assert db.DEFAULTS["hotkey_dictate"] != "<ctrl>+<alt>+<space>"
+    db.validate_setting("hotkey_dictate", db.DEFAULTS["hotkey_dictate"])
+
+
+def test_model_state_transitions(db, monkeypatch):
+    import core
+
+    c = core.Core()
+    assert c.model_state == "loading"
+    monkeypatch.setattr(core, "transcribe", lambda *a, **k: "")
+    c.warm_up()
+    assert c.model_state == "ready"
+
+
+def test_model_failure_is_recorded_not_swallowed(db, monkeypatch):
+    import core
+
+    c = core.Core()
+
+    def boom(*a, **k):
+        raise RuntimeError("no network")
+
+    monkeypatch.setattr(core, "transcribe", boom)
+    with pytest.raises(RuntimeError):
+        c.warm_up()
+    assert c.model_state == "error"
+    assert "no network" in c.model_error
+
+
 def test_port_in_use_detection():
     import socket
 

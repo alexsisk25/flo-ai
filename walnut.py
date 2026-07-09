@@ -82,22 +82,39 @@ def self_test() -> int:
     return 0 if (ok and fixup_ok) else 1
 
 
+VERSION = "1.0.0"
+
+
 def doctor() -> int:
     """Print what Walnut sees. First thing to run when something is off."""
+    import permissions
     import stt as speech
     import store
 
     store.init()
     info = speech.describe(store.get("stt_backend"))
+    log(f"Walnut:       v{VERSION}")
     log(f"Mac:          {info['chip']} ({info['machine']})")
     log(f"Engine:       {info['backend']} on {info['accelerator']}")
     log(f"Installed:    {', '.join(info['available_backends'])}")
     log(f"Model:        {speech.canonical(store.get('stt_model'))}")
     log(f"Best here:    {info['default_model']}")
+    log(f"Hotkeys:      {store.get_valid('hotkey_speak')} (narrate), "
+        f"{store.get_valid('hotkey_dictate')} (dictate)")
+    log(f"Recordings:   keeping {store.get_valid('recordings_keep')}, "
+        f"in {store.RECORDINGS}")
+    log(f"Database:     {store.DB_PATH}")
+    log("Log:          /tmp/walnut.log  (when started at login)")
+
+    trusted = permissions.accessibility_trusted()
+    log(f"Accessibility:{' granted' if trusted else ' MISSING'}")
+    if not trusted:
+        log("  → Hotkeys will register but never fire. System Settings →")
+        log("    Privacy & Security → Accessibility. Then restart Walnut.")
     if info["backend"] == speech.FASTER and speech.is_apple_silicon():
         log("NOTE: Apple Silicon is running the CPU engine. Install mlx-whisper "
             "(`uv sync`) or set backend to 'auto' for a big speed-up.")
-    return 0
+    return 0 if trusted else 1
 
 
 def main() -> int:
@@ -105,7 +122,8 @@ def main() -> int:
     parser.add_argument("--test", action="store_true",
                         help="run a no-mic end-to-end self test and exit")
     parser.add_argument("--doctor", action="store_true",
-                        help="show detected hardware, engine, and model")
+                        help="show hardware, engine, model, permissions, paths")
+    parser.add_argument("--version", action="version", version=f"Walnut {VERSION}")
     args = parser.parse_args()
 
     if args.doctor:

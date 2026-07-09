@@ -135,6 +135,30 @@ svg.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;strok
 .stat .label{color:var(--muted);font-size:var(--t-sm);margin-top:var(--s3)}
 .stat .value{font-family:var(--serif);font-size:var(--t-2xl);font-weight:700;margin-top:2px;line-height:1.1}
 .stat .note{color:var(--dim);font-size:12px;margin-top:2px}
+/* Symbol glyphs (↻, ✕) aren't in Palatino/Charter and fall back to whatever
+   the system finds — which rendered the refresh arrow as a smudge. Set them in
+   a font that actually has them. */
+.glyph{font-family:ui-sans-serif,-apple-system,"Helvetica Neue",sans-serif;
+  font-size:15px;line-height:1;display:inline-block}
+#refresh{padding:9px 12px}
+
+/* status banner: sits above every page, same column as the content */
+#status-banner{max-width:var(--measure);margin:0 auto var(--s5);
+  border:var(--line) solid var(--border);border-radius:var(--radius);
+  padding:var(--s4) var(--s5);display:flex;align-items:center;
+  gap:var(--s4);justify-content:space-between;flex-wrap:wrap}
+#status-banner.warn{background:var(--rust-bg);border-color:var(--clay)}
+#status-banner.info{background:var(--amber-bg);border-color:var(--amber-dim)}
+#status-banner h4{font-size:15px}
+#status-banner.warn h4{color:var(--clay)}
+#status-banner.info h4{color:var(--amber-dim)}
+#status-banner p{color:var(--muted);font-size:13.5px;margin-top:3px;max-width:70ch}
+/* a quiet spinner while the model downloads */
+.spinner{width:14px;height:14px;border:2px solid var(--border);
+  border-top-color:var(--amber);border-radius:50%;display:inline-block;
+  animation:spin .8s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
 /* the one hero figure on the page — it should dominate, nothing else competes */
 .hero{background:#e8ecd4;border-color:#b0ba8e}
 .eyebrow{font-size:var(--t-sm);gap:7px}
@@ -302,6 +326,10 @@ svg.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;strok
 
 <main id="main">
 
+<!-- Shown on every page when something is silently wrong: no Accessibility
+     permission, or the speech model still downloading. -->
+<div id="status-banner" class="hidden"></div>
+
 <!-- ======================= DASHBOARD ======================= -->
 <section id="page-dashboard">
   <div class="spread">
@@ -315,7 +343,7 @@ svg.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;strok
         <option value="month">This month</option>
         <option value="all">All time</option>
       </select>
-      <button id="refresh" title="Refresh">⟳</button>
+      <button id="refresh" class="glyph" title="Refresh" aria-label="Refresh">↻</button>
     </div>
   </div>
 
@@ -330,7 +358,7 @@ svg.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;strok
       <h4 style="color:var(--text)">Learn how to use Walnut</h4>
       <p>Practice read-aloud first, then dictation and snippets. Watch the menu bar icon while recording.</p>
       <p style="margin-top:8px">Read aloud <span class="kbd" id="kbd-speak">⌃⌥S</span>
-         &nbsp;·&nbsp; Dictate <span class="kbd" id="kbd-dictate">⌃⌥␣</span></p>
+         &nbsp;·&nbsp; Dictate <span class="kbd" id="kbd-dictate">⌃⌥D</span></p>
     </div>
     <button class="x" onclick="dismissGuide()">✕</button>
   </div>
@@ -481,7 +509,7 @@ svg.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;strok
       <h1>History</h1>
       <div class="sub">Find, replay, and copy past Walnut sessions.</div>
     </div>
-    <button onclick="loadHistory()">⟳ Refresh</button>
+    <button onclick="loadHistory()"><span class="glyph">↻</span> Refresh</button>
   </div>
 
   <div class="card">
@@ -640,13 +668,64 @@ function sparkline(svg, data){
   el.innerHTML = `<polygon points="${area}" fill="var(--amber)" fill-opacity=".12"/>
     <polyline points="${line}" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linejoin="round"/>`;
 }
+/* ---------- status banner ----------
+   Two things can be silently wrong: no Accessibility permission (hotkeys
+   register but never fire) and the speech model still downloading (the app
+   looks installed and inert). Say so, on every page. */
+let STATUS_POLL = null;
+async function loadStatus(){
+  let s;
+  try { s = await api('/api/status'); } catch { return; }
+  const el = $('#status-banner');
+  el.className = '';
+
+  if (!s.accessibility){
+    el.classList.add('warn');
+    el.innerHTML = `<div>
+        <h4 class="serif">Hotkeys won't work yet</h4>
+        <p>${esc(s.accessibility_hint || '')}</p>
+      </div>
+      <button class="primary" onclick="openAccessibility()">Open Settings</button>`;
+  } else if (s.model_state === 'loading'){
+    el.classList.add('info');
+    el.innerHTML = `<div>
+        <h4 class="serif"><span class="spinner"></span>Downloading the speech model</h4>
+        <p>Fetching <b>${esc(s.model)}</b>, about 1.6&nbsp;GB, once. Dictation
+           will work as soon as it lands — narration already does.</p>
+      </div>`;
+  } else if (s.model_state === 'error'){
+    el.classList.add('warn');
+    el.innerHTML = `<div>
+        <h4 class="serif">The speech model didn't load</h4>
+        <p>${esc(s.model_error || '')} — check your connection and restart Walnut.
+           Narration still works.</p>
+      </div>`;
+  } else {
+    el.classList.add('hidden');       // nothing wrong: no banner at all
+    clearInterval(STATUS_POLL); STATUS_POLL = null;
+    return;
+  }
+  // keep watching until the model lands (permissions need a restart anyway)
+  if (!STATUS_POLL && s.model_state === 'loading')
+    STATUS_POLL = setInterval(loadStatus, 3000);
+}
+async function openAccessibility(){
+  try { await api('/api/permissions/open', {method:'POST'}); } catch {}
+  toast('Add Walnut under Accessibility, then restart it');
+}
+
 let DASH_SEQ = 0;
 async function loadDashboard(){
   $('#greeting').textContent = greeting();
   if (localStorage.getItem('guideDismissed') && $('#guide')) $('#guide').remove();
   const seq = ++DASH_SEQ;
-  const d = await api('/api/dashboard?period=' + encodeURIComponent($('#period').value));
+  const [d, s] = await Promise.all([
+    api('/api/dashboard?period=' + encodeURIComponent($('#period').value)),
+    api('/api/settings')]);
   if (seq !== DASH_SEQ) return;   // a newer period/refresh already answered
+  // Paint the keycaps first: the empty state quotes them in its copy.
+  $('#kbd-speak') && ($('#kbd-speak').textContent = pretty(s.hotkey_speak));
+  $('#kbd-dictate') && ($('#kbd-dictate').textContent = pretty(s.hotkey_dictate));
   $('#streak').textContent = d.streak + (d.streak === 1 ? ' day' : ' days');
   $('#speakwpm').textContent = d.speaking_wpm + ' WPM';
   $('#typewpm').textContent = d.typing_wpm + ' WPM';
@@ -658,6 +737,13 @@ async function loadDashboard(){
   $('#s-dic').textContent = d.dictation_sessions;
   $('#s-words').textContent = d.words_dictated.toLocaleString();
   $('#s-keys').textContent = d.keystrokes_saved.toLocaleString();
+  // First launch is a wall of zeros. Say what to press instead.
+  const empty = !d.dictation_sessions && !d.readback_sessions;
+  const sub = $('#page-dashboard .sub');
+  $('#greeting').textContent = empty ? 'Welcome to Walnut' : greeting();
+  if (sub) sub.textContent = empty
+    ? `Nothing squirreled away yet. Press ${$('#kbd-dictate').textContent} and start talking, or select text anywhere and press ${$('#kbd-speak').textContent}.`
+    : "Here's what Walnut has squirreled away for you";
   $('#c-rb').textContent = d.readback_sessions;
   $('#c-dic').textContent = d.dictation_sessions;
   $('#p-active').textContent = d.active_days;
@@ -669,9 +755,6 @@ async function loadDashboard(){
   const L = d.chart.labels;
   $('#lbl-rb-a').textContent = $('#lbl-dic-a').textContent = L[0] || '';
   $('#lbl-rb-b').textContent = $('#lbl-dic-b').textContent = L[L.length-1] || '';
-  const s = await api('/api/settings');
-  $('#kbd-speak') && ($('#kbd-speak').textContent = pretty(s.hotkey_speak));
-  $('#kbd-dictate') && ($('#kbd-dictate').textContent = pretty(s.hotkey_dictate));
 }
 $('#period').addEventListener('change', loadDashboard);
 $('#refresh').addEventListener('click', loadDashboard);
@@ -1017,7 +1100,7 @@ async function testVoice(){
 api('/api/settings')
   .then(s => { window.TYPING_WPM = +s.typing_wpm; })
   .catch(() => { window.TYPING_WPM = 60; })
-  .finally(route);
+  .finally(() => { route(); loadStatus(); });
 </script>
 </body>
 </html>
