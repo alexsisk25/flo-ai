@@ -82,7 +82,7 @@ def self_test() -> int:
     return 0 if (ok and fixup_ok) else 1
 
 
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 
 
 def doctor() -> int:

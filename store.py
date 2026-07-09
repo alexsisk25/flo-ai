@@ -334,24 +334,44 @@ def history_delete(hid: int) -> None:
         c.execute("DELETE FROM history WHERE id=?", (hid,))
 
 
-def prune_recordings(keep: int | None = None) -> int:
+# A .wav is written by _save_audio() a moment before its history row is
+# inserted. In that window nothing references it, so an orphan sweep would
+# happily delete the recording of the dictation currently in progress. Give an
+# unreferenced file this long to acquire its row before treating it as debris.
+ORPHAN_GRACE_SECS = 60
+
+
+def prune_recordings(keep: int | None = None, now: float | None = None) -> int:
     """Keep only the newest `keep` dictation recordings on disk.
 
     Transcripts are never touched — only the .wav files, which are the thing
     that grows without bound. A pruned entry keeps its history row; Replay just
     falls back to reading the text aloud instead of playing the original audio.
 
+    Two kinds of file get deleted, and they are not the same kind of certain:
+
+    * **Superseded** — a row pointed at it and we just cleared that row. Known
+      dead. Deleted regardless of age.
+    * **Orphaned** — nothing in the database mentions it. Usually a crash
+      leftover, but it is *also* what an in-flight dictation looks like for the
+      microseconds between writing the file and inserting its row. Deleted only
+      once it is older than ORPHAN_GRACE_SECS.
+
+    `now` is injectable so the grace window can be tested without sleeping.
+
     Returns the number of files deleted.
     """
     if keep is None:
         keep = int(get_valid("recordings_keep"))
     keep = max(0, keep)
+    now = time.time() if now is None else now
 
     with _conn() as c:
         rows = c.execute(
             "SELECT id, audio_path FROM history WHERE audio_path IS NOT NULL"
             " ORDER BY ts DESC, id DESC").fetchall()
         survivors = {r["audio_path"] for r in rows[:keep]}
+        superseded = {r["audio_path"] for r in rows[keep:]}
         for r in rows[keep:]:
             c.execute("UPDATE history SET audio_path=NULL WHERE id=?", (r["id"],))
 
@@ -359,12 +379,28 @@ def prune_recordings(keep: int | None = None) -> int:
     # file, and a survivor's path must never be unlinked as another's leftover.
     protected = {Path(p).resolve() for p in survivors}
     removed = 0
-    if RECORDINGS.exists():
-        # Sweeps the pruned files and any orphan left by a crash in one pass.
-        for f in RECORDINGS.glob("*.wav"):
-            if f.resolve() not in protected:
-                f.unlink(missing_ok=True)
-                removed += 1
+
+    for p in superseded:
+        target = Path(p).resolve()
+        if target not in protected:
+            target.unlink(missing_ok=True)
+            removed += 1
+
+    if not RECORDINGS.exists():
+        return removed
+
+    known = protected | {Path(p).resolve() for p in superseded}
+    for f in RECORDINGS.glob("*.wav"):
+        if f.resolve() in known:
+            continue
+        try:
+            age = now - f.stat().st_mtime
+        except OSError:          # vanished under us; nothing to do
+            continue
+        if age < ORPHAN_GRACE_SECS:
+            continue             # a dictation may be mid-write. Leave it.
+        f.unlink(missing_ok=True)
+        removed += 1
     return removed
 
 

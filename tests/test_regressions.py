@@ -6,6 +6,7 @@ Run with:  uv run --group dev pytest -q
 import os
 import sqlite3
 import subprocess
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -178,13 +179,40 @@ def test_prune_zero_keeps_transcripts_but_no_audio(db):
     assert db.history_list()[0]["text"] == "only text"
 
 
-def test_prune_sweeps_orphan_files(db):
+def test_prune_sweeps_old_orphan_files(db):
     """A crash between writing the wav and inserting the row leaves a file
-    nothing points at. It should not live forever."""
+    nothing points at. Once it's older than the grace window, it goes."""
+    import time
+
     _wav(db, "orphan.wav")
     db.history_add("dictation", "kept", 1.0, audio_path=_wav(db, "kept.wav"))
-    assert db.prune_recordings(keep=3) == 1
+    later = time.time() + db.ORPHAN_GRACE_SECS + 1
+    assert db.prune_recordings(keep=3, now=later) == 1
     assert [p.name for p in db.RECORDINGS.glob("*.wav")] == ["kept.wav"]
+
+
+def test_prune_does_not_delete_a_dictation_still_being_saved(db):
+    """The race: _save_audio() writes the .wav, then history_add() inserts the
+    row. In between, nothing references the file — and it looks exactly like an
+    orphan. A prune fired from a Settings save used to delete the recording of
+    the dictation in progress, leaving the new row pointing at a dead path."""
+    in_flight = _wav(db, "in-flight.wav")          # written, row not yet inserted
+    db.prune_recordings(keep=3)                    # concurrent Settings save
+
+    assert Path(in_flight).exists(), "in-flight recording was swept as an orphan"
+
+    db.history_add("dictation", "saved", 1.0, audio_path=in_flight)   # row lands
+    row = db.history_list(limit=1)[0]
+    assert Path(row["audio_path"]).exists()
+
+
+def test_superseded_files_are_deleted_regardless_of_age(db):
+    """A file whose row we just cleared is known-dead. The grace window applies
+    only to files nothing ever referenced, not to these."""
+    for i in range(4):
+        db.history_add("dictation", f"c{i}", 1.0, audio_path=_wav(db, f"s{i}.wav"))
+    assert db.prune_recordings(keep=1) == 3        # fresh, but superseded
+    assert len(list(db.RECORDINGS.glob("*.wav"))) == 1
 
 
 def test_prune_never_unlinks_a_survivors_shared_file(db):
