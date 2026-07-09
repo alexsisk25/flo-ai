@@ -231,6 +231,10 @@ def settings():
                     store.set_setting(key, value)
                 HOTKEYS.reload()
                 raise ValueError(f"could not bind those hotkeys: {e}")
+
+        # A lowered cap should bite now, not at the next dictation.
+        if "recordings_keep" in clean:
+            store.prune_recordings()
     return jsonify(store.all_settings())
 
 

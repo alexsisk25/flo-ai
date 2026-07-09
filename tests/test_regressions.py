@@ -147,6 +147,81 @@ def test_audio_filenames_are_unique(db):
     assert len(paths) == 3
 
 
+# ----------------------------------------------------------------- retention
+
+def _wav(db, name: str):
+    p = db.RECORDINGS / name
+    p.write_bytes(b"RIFF")          # contents irrelevant; only the file matters
+    return str(p)
+
+
+def test_prune_keeps_only_the_newest_n(db):
+    for i in range(6):
+        db.history_add("dictation", f"clip {i}", 1.0,
+                       audio_path=_wav(db, f"d{i}.wav"))
+    assert db.prune_recordings(keep=3) == 3
+
+    on_disk = sorted(p.name for p in db.RECORDINGS.glob("*.wav"))
+    assert on_disk == ["d3.wav", "d4.wav", "d5.wav"]     # newest three survive
+
+    rows = db.history_list()
+    assert len(rows) == 6                                 # transcripts all kept
+    with_audio = [r for r in rows if r["audio_path"]]
+    assert len(with_audio) == 3
+
+
+def test_prune_zero_keeps_transcripts_but_no_audio(db):
+    db.history_add("dictation", "only text", 1.0, audio_path=_wav(db, "a.wav"))
+    assert db.prune_recordings(keep=0) == 1
+    assert list(db.RECORDINGS.glob("*.wav")) == []
+    assert db.history_list()[0]["audio_path"] is None
+    assert db.history_list()[0]["text"] == "only text"
+
+
+def test_prune_sweeps_orphan_files(db):
+    """A crash between writing the wav and inserting the row leaves a file
+    nothing points at. It should not live forever."""
+    _wav(db, "orphan.wav")
+    db.history_add("dictation", "kept", 1.0, audio_path=_wav(db, "kept.wav"))
+    assert db.prune_recordings(keep=3) == 1
+    assert [p.name for p in db.RECORDINGS.glob("*.wav")] == ["kept.wav"]
+
+
+def test_prune_never_unlinks_a_survivors_shared_file(db):
+    """Databases written before the filename-collision fix can have two rows
+    pointing at one file. Pruning the older row must not delete the newer
+    row's audio."""
+    shared = _wav(db, "shared.wav")
+    db.history_add("dictation", "older", 1.0, audio_path=shared)
+    db.history_add("dictation", "newer", 1.0, audio_path=shared)
+    db.prune_recordings(keep=1)
+    assert (db.RECORDINGS / "shared.wav").exists()
+
+
+def test_readback_rows_are_untouched(db):
+    db.history_add("readback", "narrated", 1.0)          # no audio_path
+    for i in range(4):
+        db.history_add("dictation", f"c{i}", 1.0, audio_path=_wav(db, f"x{i}.wav"))
+    db.prune_recordings(keep=1)
+    assert len(db.history_list()) == 5
+
+
+def test_lowering_the_cap_prunes_immediately(client, db):
+    for i in range(4):
+        db.history_add("dictation", f"c{i}", 1.0, audio_path=_wav(db, f"y{i}.wav"))
+    assert client.put("/api/settings", json={"recordings_keep": "1"}).status_code == 200
+    assert len(list(db.RECORDINGS.glob("*.wav"))) == 1
+
+
+def test_recordings_keep_is_validated(db):
+    db.validate_setting("recordings_keep", "0")
+    db.validate_setting("recordings_keep", "3")
+    with pytest.raises(ValueError):
+        db.validate_setting("recordings_keep", "-1")
+    with pytest.raises(ValueError):
+        db.validate_setting("recordings_keep", "lots")
+
+
 # -------------------------------------------------------------------- server
 
 def test_bad_input_is_400_not_500(client):

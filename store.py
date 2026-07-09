@@ -23,6 +23,9 @@ DEFAULTS = {
     "stt_backend": "auto",   # 'auto' | 'mlx' | 'faster-whisper'
     "stt_language": "en",
     "typing_wpm": "60",
+    # How many dictation .wav files to keep on disk. Transcripts are kept
+    # forever and cost nothing; the audio is what fills the drive. 0 = none.
+    "recordings_keep": "3",
     "hotkey_speak": "<ctrl>+<alt>+s",
     "hotkey_dictate": "<ctrl>+<alt>+<space>",
     "snippets_enabled": "1",
@@ -169,6 +172,7 @@ def _voice(v: str) -> str:
 VALIDATORS = {
     "tts_rate": _int_in(80, 500),
     "typing_wpm": _int_in(5, 300),
+    "recordings_keep": _int_in(0, 500),
     "port": _int_in(1024, 65535),
     "stt_model": lambda v: stt_backend.canonical(v),
     "stt_backend": _one_of("auto", stt_backend.MLX, stt_backend.FASTER),
@@ -326,6 +330,40 @@ def history_delete(hid: int) -> None:
         Path(entry["audio_path"]).unlink(missing_ok=True)
     with _conn() as c:
         c.execute("DELETE FROM history WHERE id=?", (hid,))
+
+
+def prune_recordings(keep: int | None = None) -> int:
+    """Keep only the newest `keep` dictation recordings on disk.
+
+    Transcripts are never touched — only the .wav files, which are the thing
+    that grows without bound. A pruned entry keeps its history row; Replay just
+    falls back to reading the text aloud instead of playing the original audio.
+
+    Returns the number of files deleted.
+    """
+    if keep is None:
+        keep = int(get_valid("recordings_keep"))
+    keep = max(0, keep)
+
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT id, audio_path FROM history WHERE audio_path IS NOT NULL"
+            " ORDER BY ts DESC, id DESC").fetchall()
+        survivors = {r["audio_path"] for r in rows[:keep]}
+        for r in rows[keep:]:
+            c.execute("UPDATE history SET audio_path=NULL WHERE id=?", (r["id"],))
+
+    # Resolve first: a pre-fix database can hold two rows pointing at the same
+    # file, and a survivor's path must never be unlinked as another's leftover.
+    protected = {Path(p).resolve() for p in survivors}
+    removed = 0
+    if RECORDINGS.exists():
+        # Sweeps the pruned files and any orphan left by a crash in one pass.
+        for f in RECORDINGS.glob("*.wav"):
+            if f.resolve() not in protected:
+                f.unlink(missing_ok=True)
+                removed += 1
+    return removed
 
 
 # ---------------------------------------------------------------- stats

@@ -557,6 +557,11 @@ svg.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;strok
       </select></div>
     <div class="field"><label>Language (blank = auto-detect)</label>
       <input id="set-lang" placeholder="en"></div>
+    <div class="field"><label>Recordings to keep on disk</label>
+      <input id="set-keep" type="number" min="0" max="500">
+      <span class="dim" style="font-size:12px">Transcripts are always kept. Only
+        the audio is capped — older clips are deleted, and Replay reads the text
+        aloud instead. Set to 0 to keep no audio at all.</span></div>
   </div>
 
   <div class="card section-gap">
@@ -982,6 +987,7 @@ async function loadSettings(){
   renderModels(sys, s.stt_model);
   $('#set-backend').value = s.stt_backend || 'auto';
   $('#set-lang').value = s.stt_language;
+  $('#set-keep').value = s.recordings_keep;
   $('#set-wpm').value = s.typing_wpm;
 }
 $('#set-rate').addEventListener('input', e => $('#rate-label').textContent = e.target.value);
@@ -991,6 +997,7 @@ async function saveSettings(){
     tts_voice: $('#set-voice').value, tts_rate: $('#set-rate').value,
     stt_model: $('#set-model').value, stt_backend: $('#set-backend').value,
     stt_language: $('#set-lang').value.trim(),
+    recordings_keep: $('#set-keep').value,
     typing_wpm: $('#set-wpm').value})});
   window.TYPING_WPM = +$('#set-wpm').value;
   // Switching engine changes which models are sensible; re-read the server.

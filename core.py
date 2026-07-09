@@ -277,6 +277,7 @@ class Core:
             audio_path = self._save_audio(audio)
             store.history_add("dictation", text, secs,
                               snippet=used_snippet, audio_path=audio_path)
+            store.prune_recordings()   # keep only the newest few .wav files
             self._type(text + " ")
         finally:
             self.on_state("idle")

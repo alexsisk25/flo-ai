@@ -22,6 +22,11 @@ class WalnutApp(rumps.App):
         super().__init__("Walnut", icon=ICON_IDLE, template=True,
                          quit_button="Quit Walnut")
         store.init()
+        # Apply the cap to whatever accumulated while an older build ran.
+        pruned = store.prune_recordings()
+        if pruned:
+            core.log(f"Pruned {pruned} old recording(s); "
+                     f"keeping the newest {store.get_valid('recordings_keep')}.")
         self.overlay = overlay.Overlay()
         self.core = core.Core()
         self.core.on_state = self.set_state
