@@ -18,6 +18,39 @@ ICON_REC = str(STATIC / "squirrel-rec.png")
 ICON_BUSY = str(STATIC / "squirrel-busy.png")
 
 
+def build_menu(trusted: bool, speak: str, dictate: str, handlers: dict) -> list:
+    """The menu bar, as a plain list, assembled before rumps ever sees it.
+
+    This used to be built by assigning `self.menu` and then calling
+    `self.menu.insert(0, …)` when Accessibility was missing. `rumps.Menu` is an
+    OrderedDict subclass with no `insert`, so that raised AttributeError inside
+    __init__ — on first launch, for every user who hadn't granted the
+    permission yet, i.e. all of them. launchd then respawned the corpse forever.
+
+    Kept module-level and GUI-free so both branches are testable without a
+    menu bar. `None` becomes a separator.
+    """
+    items = []
+    # The hotkeys are dead without Accessibility, and pynput won't say so.
+    # Put the truth where someone looks when nothing happens: the top of the menu.
+    if not trusted:
+        items += [rumps.MenuItem("⚠️  Grant Accessibility Permission",
+                                 callback=handlers["fix_permissions"]),
+                  None]
+    items += [
+        rumps.MenuItem("Open Walnut Dashboard",
+                       callback=handlers["open_dashboard"]),
+        None,
+        rumps.MenuItem(f"Start/Stop Dictation   {pretty(dictate)}",
+                       callback=handlers["menu_dictate"]),
+        rumps.MenuItem(f"Narrate Selection   {pretty(speak)}",
+                       callback=handlers["menu_speak"]),
+        rumps.MenuItem("Stop Narration", callback=handlers["menu_stop"]),
+        None,
+    ]
+    return items
+
+
 class WalnutApp(rumps.App):
     def __init__(self):
         super().__init__("Walnut", icon=ICON_IDLE, template=True,
@@ -46,24 +79,15 @@ class WalnutApp(rumps.App):
 
         speak = store.get_valid("hotkey_speak")
         dictate = store.get_valid("hotkey_dictate")
-        self.menu = [
-            rumps.MenuItem("Open Walnut Dashboard", callback=self.open_dashboard),
-            None,
-            rumps.MenuItem(f"Start/Stop Dictation   {pretty(dictate)}",
-                           callback=self.menu_dictate),
-            rumps.MenuItem(f"Narrate Selection   {pretty(speak)}",
-                           callback=self.menu_speak),
-            rumps.MenuItem("Stop Narration", callback=self.menu_stop),
-            None,
-        ]
-
-        # The hotkeys are dead without Accessibility, and pynput won't say so.
-        # Put the truth where someone looks when nothing happens: the menu.
-        if not permissions.accessibility_trusted():
-            self.menu.insert(0, rumps.MenuItem(
-                "⚠️  Grant Accessibility Permission",
-                callback=self.fix_permissions))
-            self.menu.insert(1, None)
+        trusted = permissions.accessibility_trusted()
+        self.menu = build_menu(trusted, speak, dictate, {
+            "fix_permissions": self.fix_permissions,
+            "open_dashboard": self.open_dashboard,
+            "menu_dictate": self.menu_dictate,
+            "menu_speak": self.menu_speak,
+            "menu_stop": self.menu_stop,
+        })
+        if not trusted:
             core.log("Accessibility permission missing — hotkeys will not fire.")
             permissions.request_accessibility()   # shows the system dialog once
 

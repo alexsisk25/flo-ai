@@ -22,6 +22,34 @@ def db(tmp_path, monkeypatch):
 
 
 @pytest.fixture
+def first_run(db, monkeypatch):
+    """The state a stranger's Mac is in, which the developer's never is.
+
+    Accessibility denied, empty database, model still downloading. Two
+    crash-loop bugs shipped because nothing forced this state. Use it for any
+    branch only a first-time user reaches.
+
+    `request_accessibility` is neutered: it opens a system modal that would
+    hang the suite waiting for a human.
+    """
+    import permissions
+
+    monkeypatch.setattr(permissions, "accessibility_trusted", lambda: False)
+    monkeypatch.setattr(permissions, "request_accessibility", lambda: False)
+    # summary() calls accessibility_trusted(), so it follows automatically.
+    return db
+
+
+@pytest.fixture
+def free_port():
+    import socket
+
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+@pytest.fixture
 def client(db):
     """Flask test client wired to a real Core, on the throwaway store."""
     import core
