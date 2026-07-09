@@ -117,7 +117,7 @@ build_app() {
   <key>CFBundleExecutable</key><string>walnut</string>
   <key>CFBundleIconFile</key><string>walnut</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>1.1.0</string>
+  <key>CFBundleShortVersionString</key><string>1.1.1</string>
   <key>NSHighResolutionCapable</key><true/>
   <!-- menu bar utility: live in the status bar, not the Dock -->
   <key>LSUIElement</key><true/>

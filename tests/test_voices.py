@@ -119,6 +119,37 @@ def test_falls_back_to_any_good_voice_when_language_has_none(say):
     assert s["suggestions"] == ["Paulina (Premium)"]
 
 
+# ------------------------------------------------------------- pane naming
+
+@pytest.mark.parametrize("mac_ver,expected", [
+    ("26.5.1", "Read & Speak"),      # renamed, and dropped from the sidebar
+    ("26.0", "Read & Speak"),
+    ("15.4", "Spoken Content"),
+    ("14.0", "Spoken Content"),
+])
+def test_pane_name_tracks_the_macos_rename(monkeypatch, mac_ver, expected):
+    monkeypatch.setattr(voices.platform, "mac_ver", lambda: (mac_ver, "", ""))
+    assert voices.pane_name() == expected
+
+
+def test_pane_name_survives_an_unparseable_version(monkeypatch):
+    monkeypatch.setattr(voices.platform, "mac_ver", lambda: ("", "", ""))
+    assert "Read & Speak" in voices.pane_name()   # mentions both, guesses neither
+
+
+def test_download_hint_names_the_pane_that_exists(monkeypatch, say):
+    """Telling a user to click something not in their sidebar is worse than
+    saying nothing. macOS 26 has no 'Spoken Content'."""
+    say("Albert   en_US    # Hi.\n")
+    monkeypatch.setattr(voices.platform, "mac_ver", lambda: ("26.5.1", "", ""))
+    hint = voices.status(selected="")["hint"]
+    assert "Read & Speak" in hint and "Spoken Content" not in hint
+
+    monkeypatch.setattr(voices.platform, "mac_ver", lambda: ("14.0", "", ""))
+    hint = voices.status(selected="")["hint"]
+    assert "Spoken Content" in hint and "Read & Speak" not in hint
+
+
 # ----------------------------------------------------------------- server
 
 def test_status_endpoint_exposes_the_voice_verdict(client):

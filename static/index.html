@@ -564,7 +564,7 @@ svg.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;strok
     <div class="field"><label>Voice</label>
       <div class="row"><select id="set-voice" style="flex:1"></select>
       <button onclick="testVoice()">▶ Test</button></div>
-      <span class="dim" style="font-size:12px">Get better voices in System Settings → Accessibility → Spoken Content → Manage Voices (Siri &amp; Enhanced).</span>
+      <span id="voice-help" class="dim" style="font-size:12px"></span>
     </div>
     <div class="field"><label>Speed: <b id="rate-label"></b> words per minute</label>
       <input id="set-rate" type="range" min="120" max="360" step="10"></div>
@@ -1086,8 +1086,16 @@ function paintModelNote(sys){
   $('#model-note').textContent = m ? m.note : '';
 }
 async function loadSettings(){
-  const [s, voices, sys] = await Promise.all([
-    api('/api/settings'), api('/api/voices'), api('/api/system')]);
+  const [s, voices, sys, st] = await Promise.all([
+    api('/api/settings'), api('/api/voices'), api('/api/system'),
+    api('/api/status').catch(() => ({}))]);
+  // Apple renamed this pane at macOS 26 ("Spoken Content" → "Read & Speak"),
+  // so the server tells us what to call it rather than the HTML guessing.
+  const pane = st.voice_pane || 'Spoken Content';
+  $('#voice-help').innerHTML =
+    `Sounds robotic? Free neural voices live in System Settings → Accessibility → `
+    + `${esc(pane)} → System voice → Manage Voices. Look for (Premium) or (Enhanced). `
+    + `<a href="#" onclick="openVoiceSettings();return false">Open it</a>`;
   window.TYPING_WPM = +s.typing_wpm;
   window.SYS = sys;
   // 184 voices, and the three good ones are buried alphabetically. Surface the

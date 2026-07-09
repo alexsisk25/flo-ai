@@ -264,6 +264,8 @@ def status():
         "voice_reason": voice["reason"],
         "voice_hint": voice["hint"],
         "voice_suggestions": voice["suggestions"],
+        # Apple renamed this pane at macOS 26; the UI must not hardcode it.
+        "voice_pane": voice_lib.pane_name(),
     })
 
 

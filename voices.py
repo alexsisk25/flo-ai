@@ -11,12 +11,30 @@ the right pane. (Siri's voices are walled off from `say` entirely — they never
 appear in `say -v '?'` — so Premium is the ceiling for this code path.)
 """
 
+import platform
 import re
 import subprocess
 
-# System Settings → Accessibility → Spoken Content
+# The pane that holds "System voice → Manage Voices". Its ANCHOR has been
+# stable across releases; only Apple's name for it changes, so the deep link
+# below still lands correctly on macOS 26 even though the sidebar no longer
+# says "Spoken Content".
 _VOICE_PANE = ("x-apple.systempreferences:com.apple.preference.universalaccess"
                "?TextToSpeech")
+
+
+def _pane_name() -> str:
+    """What the pane is called on THIS macOS.
+
+    macOS 26 renamed Accessibility → "Spoken Content" to "Read & Speak" and
+    dropped it from the sidebar list. Telling a user to click something that
+    isn't there is worse than saying nothing.
+    """
+    try:
+        major = int(platform.mac_ver()[0].split(".")[0])
+    except (ValueError, IndexError):
+        return "Spoken Content (or Read & Speak)"
+    return "Read & Speak" if major >= 26 else "Spoken Content"
 
 # `say -v '?'` lines look like:
 #   Tom                    en_US    # Hello! My name is Tom.
@@ -95,11 +113,16 @@ def status(selected: str = "", language: str = "en") -> dict:
         "ok": False,
         "reason": "none_installed",
         "hint": ("macOS ships far better narration voices for free — they're "
-                 "just not installed. System Settings → Accessibility → "
-                 "Spoken Content → System Voice → Manage Voices. Look for "
-                 "(Premium) or (Enhanced)."),
+                 f"just not installed. System Settings → Accessibility → "
+                 f"{_pane_name()} → System voice → Manage Voices. Look for "
+                 "(Premium) or (Enhanced), then pick it here."),
         "suggestions": [],
     }
+
+
+def pane_name() -> str:
+    """Public: what to call the voice pane in UI copy on this macOS."""
+    return _pane_name()
 
 
 def open_voice_settings() -> None:
