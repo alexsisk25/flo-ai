@@ -23,18 +23,27 @@ the GPU makes it cheap, a small one where transcription lands on the CPU.
 ```sh
 git clone https://github.com/Bjepp77/walnut.git
 cd walnut
-./install.sh            # add --login to also start Walnut at login
+./install.sh --app --login
 ```
 
 That installs [uv](https://docs.astral.sh/uv/) if you don't have it, pulls
-dependencies, and runs a self-test. Then:
+dependencies, runs a self-test, builds `Walnut.app`, and starts Walnut at
+login. Every flag is optional — bare `./install.sh` just sets up the code.
 
-```sh
-uv run walnut.py
-```
+| Flag | What it adds |
+|---|---|
+| *(none)* | dependencies + self-test. Run with `uv run walnut.py`. |
+| `--app` | `Walnut.app` in /Applications — double-click, Spotlight, Launchpad. |
+| `--login` | starts Walnut automatically at login. |
+| `--uninstall` | removes the app and the login item. Keeps your data. |
 
-A squirrel appears in the menu bar and the dashboard opens at
+A squirrel appears in the menu bar and the dashboard lives at
 **http://127.0.0.1:8765**.
+
+`Walnut.app` is a thin launcher, not a frozen bundle: it runs this repo through
+`uv`. Pull new code and the app picks it up — nothing to rebuild. If Walnut is
+already running, opening the app just shows the dashboard instead of starting a
+second copy.
 
 ### macOS permissions (once)
 
@@ -46,8 +55,9 @@ Walnut cannot grant these for you.
 2. **Microphone** — macOS prompts on first dictation. Allow.
 3. **Input Monitoring** — only if hotkeys still don't fire.
 
-Running via `--login`? The launch agent runs Walnut through `uv`, so grant the
-permissions to `uv` (macOS will name it when it asks).
+Which binary do you grant? Whatever launches Walnut: your terminal when you run
+it by hand, `uv` when it starts at login, `Walnut.app` when you double-click it.
+Granting all three is fine.
 
 ## Use it
 
@@ -117,6 +127,10 @@ hand, `uv` when it starts at login).
 
 Logs go to `/tmp/walnut.log`. The agent has `KeepAlive` on, so it relaunches
 if it crashes.
+
+Walnut.app is signed ad-hoc, not notarized. That's invisible to you because you
+built it locally. If you ever hand someone the built `.app` instead of the repo,
+Gatekeeper will block it — send them the repo.
 
 ## Files
 
