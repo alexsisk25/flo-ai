@@ -82,7 +82,7 @@ def self_test() -> int:
     return 0 if (ok and fixup_ok) else 1
 
 
-VERSION = "1.1.1"
+VERSION = "1.1.2"
 
 
 def doctor() -> int:
@@ -112,6 +112,8 @@ def doctor() -> int:
     log(f"Voice:        {voice} — {'good' if vstat['ok'] else vstat['reason']}")
     if not vstat["ok"]:
         log(f"  → {vstat['hint']}")
+        if vstat["suggestions"]:
+            log(f"  → installed and ready: {', '.join(vstat['suggestions'])}")
 
     trusted = permissions.accessibility_trusted()
     log(f"Accessibility:{' granted' if trusted else ' MISSING'}")

@@ -700,23 +700,28 @@ async function loadStatus(){
         <p>${esc(s.model_error || '')} — check your connection and restart Walnut.
            Narration still works.</p>
       </div>`;
-  } else if (!s.voice_ok && !localStorage.getItem('voiceNudgeDismissed')){
+  // A dismissed nudge stays dismissed — except 'missing', which is a real
+  // fault (you picked a voice, it's gone, macOS is substituting silently).
+  } else if (!s.voice_ok && (s.voice_reason === 'missing'
+                             || !localStorage.getItem('voiceNudgeDismissed'))){
     // Advice, not a fault: nothing is broken, it just sounds worse than it
     // needs to. Dismissible, and ranked below the things that are actually wrong.
-    const download = s.voice_reason === 'none_installed';
-    el.classList.add('info');
+    // 'missing' means the chosen voice was uninstalled and macOS is silently
+    // substituting its default — worth a firmer colour than the other nudges.
+    const picks = s.voice_suggestions || [];
+    el.classList.add(s.voice_reason === 'missing' ? 'warn' : 'info');
     el.innerHTML = `<div>
-        <h4 class="serif">Walnut sounds robotic?</h4>
+        <h4 class="serif">${esc(s.voice_title || 'Walnut sounds robotic?')}</h4>
         <p>${esc(s.voice_hint || '')}</p>
-        ${s.voice_suggestions && s.voice_suggestions.length
+        ${picks.length
           ? `<p style="margin-top:6px">Installed and ready: ${
-              s.voice_suggestions.map(v => `<span class="kbd">${esc(v)}</span>`).join(' ')}</p>`
+              picks.map(v => `<span class="kbd">${esc(v)}</span>`).join(' ')}</p>`
           : ''}
       </div>
       <div class="row">
-        ${download
-          ? `<button class="primary" onclick="openVoiceSettings()">Get better voices</button>`
-          : `<button class="primary" onclick="location.hash='settings'">Choose a voice</button>`}
+        ${picks.length
+          ? `<button class="primary" onclick="location.hash='settings'">Choose a voice</button>`
+          : `<button class="primary" onclick="openVoiceSettings()">Get better voices</button>`}
         <button class="x" onclick="dismissVoiceNudge()" title="Dismiss">✕</button>
       </div>`;
   } else {

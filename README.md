@@ -100,6 +100,35 @@ Walnut stores one canonical model name and translates it per engine, so the same
 Both are re-bindable on the **Shortcuts** page — live, no restart. Dictation is
 `⌃⌥D` rather than `⌃⌥Space` because macOS uses that to switch input sources.
 
+## Make the narration sound human
+
+**Do this. It takes two minutes and it is the single biggest improvement
+available.**
+
+Every Mac defaults to a formant synthesiser from the mid-2000s — the robot you
+are picturing. macOS also ships modern neural voices, free and fully offline,
+but does not install them and buries the download three levels deep. Most people
+never find out they exist.
+
+> System Settings → Accessibility → **Read & Speak** → System voice → Manage Voices
+>
+> *(on macOS 15 and earlier the pane is called **Spoken Content**)*
+
+Download anything marked **(Premium)** or **(Enhanced)** — Ava, Zoe, Evan, Lee.
+Then pick it in Walnut's **Settings**, where they're grouped at the top under
+*High quality — neural*.
+
+Walnut checks for this on every launch. If you have no good voice installed it
+says so and offers to open the pane. If you have one but haven't selected it, it
+names it. If the voice you picked is later uninstalled — `say` substitutes the
+default *silently* — Walnut notices that too. It will not pretend to sound good.
+
+Siri's voices are walled off from the `say` command entirely and cannot be used
+by any app; Premium is the ceiling. Walnut deliberately ships no bundled neural
+TTS: every open phonemiser in reach (`espeak-ng`, `phonemizer-fork`, and so
+`piper-tts` and `kokoro-onnx`) is GPL-3, which would silently relicense this
+MIT project.
+
 ## The dashboard
 
 <table>
@@ -161,7 +190,7 @@ Logs go to `/tmp/walnut.log` when Walnut starts at login.
 ## Development
 
 ```sh
-uv run --group dev pytest -q     # 56 tests
+uv run --group dev pytest -q     # 83 tests
 ```
 
 Every test in `tests/` is a bug Walnut actually shipped: a dictionary fix-up

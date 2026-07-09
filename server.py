@@ -262,6 +262,7 @@ def status():
         # download, so they conclude local narration just sounds like this.
         "voice_ok": voice["ok"],
         "voice_reason": voice["reason"],
+        "voice_title": voice["title"],
         "voice_hint": voice["hint"],
         "voice_suggestions": voice["suggestions"],
         # Apple renamed this pane at macOS 26; the UI must not hardcode it.

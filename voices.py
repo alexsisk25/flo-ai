@@ -14,6 +14,7 @@ appear in `say -v '?'` — so Premium is the ceiling for this code path.)
 import platform
 import re
 import subprocess
+import time
 
 # The pane that holds "System voice → Manage Voices". Its ANCHOR has been
 # stable across releases; only Apple's name for it changes, so the deep link
@@ -59,7 +60,22 @@ def quality(name: str) -> str:
     return STANDARD
 
 
-def list_voices() -> list[dict]:
+# `say -v '?'` costs ~380ms — a real subprocess, enumerating 184 voices. It was
+# being run on every /api/status and every /api/voices, so the Settings page
+# paid ~760ms before painting, and the dashboard re-paid it every 3 seconds
+# while the speech model downloaded. The list changes when a user installs a
+# voice, which happens about twice in a machine's life. Cache it.
+CACHE_TTL_SECS = 60
+_cache: dict = {"voices": None, "at": 0.0}
+
+
+def invalidate_cache() -> None:
+    """Called when we send the user off to install voices — the one moment the
+    list is actually likely to change."""
+    _cache["voices"] = None
+
+
+def _read_voices() -> list[dict]:
     try:
         out = subprocess.run(["say", "-v", "?"], capture_output=True,
                              text=True, timeout=10).stdout
@@ -75,47 +91,85 @@ def list_voices() -> list[dict]:
     return voices
 
 
+def list_voices() -> list[dict]:
+    """Installed voices, cached for CACHE_TTL_SECS."""
+    now = time.monotonic()
+    if _cache["voices"] is None or now - _cache["at"] > CACHE_TTL_SECS:
+        _cache["voices"] = _read_voices()
+        _cache["at"] = now
+    return _cache["voices"]
+
+
 def _good(v: dict) -> bool:
     return v["quality"] in (PREMIUM, ENHANCED)
+
+
+def _download_hint() -> str:
+    return ("macOS ships far better narration voices for free — they're just "
+            f"not installed. System Settings → Accessibility → {_pane_name()} "
+            "→ System voice → Manage Voices. Look for (Premium) or (Enhanced), "
+            "then pick it here.")
 
 
 def status(selected: str = "", language: str = "en") -> dict:
     """Is this user going to hear something decent?
 
-    Three outcomes, and they need different advice:
+    Four outcomes, and they need different advice:
 
-      ok             — a Premium/Enhanced voice is selected. Say nothing.
+      ok             — a Premium/Enhanced voice is selected AND installed.
+      missing        — the selected voice is gone. `say` does not complain: it
+                       silently falls back to the system default, so Walnut
+                       would otherwise report "fine" while the user hears the
+                       robot. Judging quality from the stored *name* alone was
+                       exactly the kind of unearned claim this feature exists
+                       to stamp out.
       not_selected   — good voices are installed but the user is on a default.
       none_installed — no good voice exists on this Mac. Send them to download.
     """
     voices = list_voices()
     if not voices:                       # `say` missing; not our problem to nag
-        return {"ok": True, "reason": None, "hint": None, "suggestions": []}
-
-    if selected and quality(selected) in (PREMIUM, ENHANCED):
-        return {"ok": True, "reason": None, "hint": None, "suggestions": []}
+        return {"ok": True, "reason": None, "title": None,
+                "hint": None, "suggestions": []}
 
     lang = (language or "en").split("_")[0].lower() or "en"
     good = [v for v in voices if _good(v)]
     # A Spanish Premium voice doesn't help someone narrating English.
-    in_lang = [v for v in good if v["locale"].lower().startswith(lang)]
-    usable = in_lang or good
+    usable = [v for v in good if v["locale"].lower().startswith(lang)] or good
+    suggestions = [v["name"] for v in usable[:5]]
+    installed = {v["name"] for v in voices}
+
+    if selected and selected not in installed:
+        return {
+            "ok": False,
+            "reason": "missing",
+            "title": "Your narration voice is gone",
+            "hint": (f"“{selected}” is no longer installed, so macOS is quietly "
+                     "using its default voice instead. Pick another on the "
+                     "Settings page."
+                     if usable else
+                     f"“{selected}” is no longer installed, so macOS is quietly "
+                     f"using its default voice instead. {_download_hint()}"),
+            "suggestions": suggestions,
+        }
+
+    if selected and quality(selected) in (PREMIUM, ENHANCED):
+        return {"ok": True, "reason": None, "title": None,
+                "hint": None, "suggestions": []}
 
     if usable:
         return {
             "ok": False,
             "reason": "not_selected",
+            "title": "Walnut sounds robotic?",
             "hint": ("You have high-quality voices installed but Walnut is "
                      "using a default one. Pick one on the Settings page."),
-            "suggestions": [v["name"] for v in usable[:5]],
+            "suggestions": suggestions,
         }
     return {
         "ok": False,
         "reason": "none_installed",
-        "hint": ("macOS ships far better narration voices for free — they're "
-                 f"just not installed. System Settings → Accessibility → "
-                 f"{_pane_name()} → System voice → Manage Voices. Look for "
-                 "(Premium) or (Enhanced), then pick it here."),
+        "title": "Walnut sounds robotic?",
+        "hint": _download_hint(),
         "suggestions": [],
     }
 
@@ -127,5 +181,7 @@ def pane_name() -> str:
 
 def open_voice_settings() -> None:
     """Deep-link to the pane that downloads voices."""
+    # They're about to install one. Don't serve a stale list for a minute.
+    invalidate_cache()
     subprocess.Popen(["open", _VOICE_PANE],
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
