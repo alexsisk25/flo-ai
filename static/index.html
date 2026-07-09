@@ -700,6 +700,25 @@ async function loadStatus(){
         <p>${esc(s.model_error || '')} — check your connection and restart Walnut.
            Narration still works.</p>
       </div>`;
+  } else if (!s.voice_ok && !localStorage.getItem('voiceNudgeDismissed')){
+    // Advice, not a fault: nothing is broken, it just sounds worse than it
+    // needs to. Dismissible, and ranked below the things that are actually wrong.
+    const download = s.voice_reason === 'none_installed';
+    el.classList.add('info');
+    el.innerHTML = `<div>
+        <h4 class="serif">Walnut sounds robotic?</h4>
+        <p>${esc(s.voice_hint || '')}</p>
+        ${s.voice_suggestions && s.voice_suggestions.length
+          ? `<p style="margin-top:6px">Installed and ready: ${
+              s.voice_suggestions.map(v => `<span class="kbd">${esc(v)}</span>`).join(' ')}</p>`
+          : ''}
+      </div>
+      <div class="row">
+        ${download
+          ? `<button class="primary" onclick="openVoiceSettings()">Get better voices</button>`
+          : `<button class="primary" onclick="location.hash='settings'">Choose a voice</button>`}
+        <button class="x" onclick="dismissVoiceNudge()" title="Dismiss">✕</button>
+      </div>`;
   } else {
     el.classList.add('hidden');       // nothing wrong: no banner at all
     clearInterval(STATUS_POLL); STATUS_POLL = null;
@@ -712,6 +731,14 @@ async function loadStatus(){
 async function openAccessibility(){
   try { await api('/api/permissions/open', {method:'POST'}); } catch {}
   toast('Add Walnut under Accessibility, then restart it');
+}
+async function openVoiceSettings(){
+  try { await api('/api/voices/open', {method:'POST'}); } catch {}
+  toast('System Voice → Manage Voices → look for (Premium)');
+}
+function dismissVoiceNudge(){
+  localStorage.setItem('voiceNudgeDismissed', '1');
+  $('#status-banner').className = 'hidden';
 }
 
 let DASH_SEQ = 0;
@@ -1063,8 +1090,16 @@ async function loadSettings(){
     api('/api/settings'), api('/api/voices'), api('/api/system')]);
   window.TYPING_WPM = +s.typing_wpm;
   window.SYS = sys;
-  $('#set-voice').innerHTML = '<option value="">System default</option>' +
-    voices.map(v => `<option value="${esc(v.name)}">${esc(v.name)} (${esc(v.locale)})</option>`).join('');
+  // 184 voices, and the three good ones are buried alphabetically. Surface the
+  // Premium/Enhanced ones in their own group at the top.
+  const opt = v => `<option value="${esc(v.name)}">${esc(v.name)} (${esc(v.locale)})</option>`;
+  const group = (label, list) => list.length
+    ? `<optgroup label="${label}">${list.map(opt).join('')}</optgroup>` : '';
+  const good = voices.filter(v => v.quality === 'premium' || v.quality === 'enhanced');
+  const plain = voices.filter(v => v.quality === 'standard');
+  $('#set-voice').innerHTML = '<option value="">System default</option>'
+    + group('High quality — neural', good)
+    + group(good.length ? 'Standard' : 'Standard (install Premium voices for better narration)', plain);
   $('#set-voice').value = s.tts_voice || '';
   $('#set-rate').value = s.tts_rate; $('#rate-label').textContent = s.tts_rate;
   renderModels(sys, s.stt_model);
@@ -1086,6 +1121,7 @@ async function saveSettings(){
   // Switching engine changes which models are sensible; re-read the server.
   window.SYS = await api('/api/system');
   renderModels(window.SYS, $('#set-model').value);
+  loadStatus();          // picking a good voice should retire the nudge at once
   $('#set-status').textContent = '✓ Saved';
   setTimeout(() => $('#set-status').textContent = '', 2000);
 }

@@ -82,7 +82,7 @@ def self_test() -> int:
     return 0 if (ok and fixup_ok) else 1
 
 
-VERSION = "1.0.2"
+VERSION = "1.1.0"
 
 
 def doctor() -> int:
@@ -90,6 +90,7 @@ def doctor() -> int:
     import permissions
     import stt as speech
     import store
+    import voices
 
     store.init()
     info = speech.describe(store.get("stt_backend"))
@@ -105,6 +106,12 @@ def doctor() -> int:
         f"in {store.RECORDINGS}")
     log(f"Database:     {store.DB_PATH}")
     log("Log:          /tmp/walnut.log  (when started at login)")
+
+    voice = store.get_valid("tts_voice") or "(system default)"
+    vstat = voices.status(store.get("tts_voice"), store.get("stt_language"))
+    log(f"Voice:        {voice} — {'good' if vstat['ok'] else vstat['reason']}")
+    if not vstat["ok"]:
+        log(f"  → {vstat['hint']}")
 
     trusted = permissions.accessibility_trusted()
     log(f"Accessibility:{' granted' if trusted else ' MISSING'}")

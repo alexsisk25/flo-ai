@@ -1,7 +1,6 @@
 """Flask API + static UI for the Walnut dashboard."""
 
 import logging
-import re
 import subprocess
 import threading
 from pathlib import Path
@@ -11,6 +10,7 @@ from flask import Flask, jsonify, request, send_from_directory
 import permissions
 import stt
 import store
+import voices as voice_lib
 
 HERE = Path(__file__).resolve().parent
 
@@ -251,12 +251,19 @@ def system():
 def status():
     """Everything that could be silently wrong right now."""
     perms = permissions.summary()
+    voice = voice_lib.status(store.get("tts_voice"), store.get("stt_language"))
     return jsonify({
         "accessibility": perms["accessibility"],
         "accessibility_hint": perms["hint"],
         "model_state": CORE.model_state if CORE else "unknown",
         "model_error": CORE.model_error if CORE else None,
         "model": stt.canonical(store.get("stt_model")),
+        # Not an error — nobody knows macOS hides good voices behind a
+        # download, so they conclude local narration just sounds like this.
+        "voice_ok": voice["ok"],
+        "voice_reason": voice["reason"],
+        "voice_hint": voice["hint"],
+        "voice_suggestions": voice["suggestions"],
     })
 
 
@@ -268,15 +275,13 @@ def permissions_open():
 
 @app.route("/api/voices")
 def voices():
-    out = subprocess.run(["say", "-v", "?"], capture_output=True,
-                         text=True).stdout
-    result = []
-    for line in out.splitlines():
-        m = re.match(r"^(.*?)\s{2,}(\S+)\s+#\s*(.*)$", line)
-        if m:
-            result.append({"name": m.group(1).strip(),
-                           "locale": m.group(2), "sample": m.group(3)})
-    return jsonify(result)
+    return jsonify(voice_lib.list_voices())
+
+
+@app.route("/api/voices/open", methods=["POST"])
+def voices_open():
+    voice_lib.open_voice_settings()
+    return jsonify({"ok": True})
 
 
 @app.route("/api/test-voice", methods=["POST"])
