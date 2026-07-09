@@ -8,109 +8,184 @@
 <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
 <style>
 :root{
-  /* neutral nature palette — sand / stone / bark / moss / clay / rust */
-  --bg:#efece4; --side:#e7e3d7; --card:#faf9f6; --card2:#f1eee6;
-  --border:#dcd6c7; --text:#2c2822; --muted:#6b6558; --dim:#8a8371;
-  --amber:#4e7d2e; --amber-dim:#3e6423; --amber-bg:#e9eedd;   /* moss (accent) */
-  --green:#2f6b46; --red:#a94d34;                             /* pine / rust */
-  --clay:#a76f4f;
+  /* Arts & Crafts parchment palette — walnut ink / forest / rust / ochre */
+  --bg:#ece4d0; --side:#e3d9c0; --card:#f7f2e4; --card2:#efe8d5;
+  --border:#c8bb9b; --border-soft:#d9cfb4;
+  --text:#2a241a; --muted:#675e4c; --dim:#7b7059;
+  --amber:#3d6b47; --amber-dim:#2f5537; --amber-bg:#e3e7d0;   /* forest green (primary) */
+  --green:#3d6b47; --red:#9a4526;                              /* forest / rust */
+  --clay:#9a4526; --ochre:#b08536; --rust-bg:#f0e0cf;
+  --serif:"Palatino","Palatino Linotype","Book Antiqua",Georgia,serif;
+  --bodyfont:"Charter","Bitstream Charter",Georgia,serif;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--text);font:15px/1.5 -apple-system,"Segoe UI",sans-serif;display:flex;min-height:100vh}
-h1{font-family:Georgia,"Times New Roman",serif;font-weight:600;font-size:34px;letter-spacing:.2px}
-h3.serif{font-family:Georgia,serif;font-weight:600}
+body{background:var(--bg);color:var(--text);font:15.5px/1.55 var(--bodyfont);display:flex;min-height:100vh}
+/* faint handmade-paper grain over everything */
+body::after{content:"";position:fixed;inset:0;pointer-events:none;opacity:.05;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E")}
+h1{font-family:var(--serif);font-weight:600;font-size:34px;letter-spacing:.01em}
+h3.serif{font-family:var(--serif);font-weight:600;font-size:18px}
+h4{font-family:var(--serif);font-weight:600}
 a{color:var(--amber)}
-button{font:inherit;cursor:pointer;border:1px solid var(--border);background:var(--card2);color:var(--text);border-radius:10px;padding:8px 14px}
+button{font:600 12.5px/1.3 var(--bodyfont);letter-spacing:.07em;text-transform:uppercase;
+  cursor:pointer;border:1.5px solid var(--border);background:var(--card);color:var(--text);
+  border-radius:2px;padding:9px 14px}
 button:hover{border-color:var(--amber-dim)}
-button.primary{background:var(--amber);border-color:var(--amber);color:#fdfcf9;font-weight:600}
-button.danger{background:var(--red);border-color:var(--red);color:#fff}
+button.primary{background:var(--amber);border-color:var(--amber-dim);color:#f7f2e4}
+button.danger{background:var(--red);border-color:#7e3113;color:#f7f2e4}
 button.ghost{background:transparent}
-input,select,textarea{font:inherit;background:#fdfcf9;border:1px solid var(--border);color:var(--text);border-radius:10px;padding:9px 12px;outline:none}
+input,select,textarea{font:inherit;background:#fbf7ec;border:1.5px solid var(--border);color:var(--text);border-radius:2px;padding:9px 12px;outline:none}
 input:focus,select:focus,textarea:focus{border-color:var(--amber-dim)}
+input[type=range]{accent-color:var(--amber);border:0;background:transparent;padding:0}
+/* woodcut icons */
+svg.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+/* ornamental divider */
+.ornament{display:flex;align-items:center;gap:10px;color:var(--ochre);margin:18px 6px}
+.ornament::before,.ornament::after{content:"";flex:1;border-top:1px solid var(--border)}
 /* sidebar */
-#side{width:210px;background:var(--side);border-right:1px solid var(--border);padding:20px 12px;display:flex;flex-direction:column;position:fixed;top:0;bottom:0}
-#side .logo{font-family:Georgia,serif;font-size:20px;letter-spacing:2px;padding:0 10px;margin-bottom:2px}
-#side .powered{color:var(--dim);font-size:12px;padding:0 10px;margin-bottom:22px}
-#side nav{display:flex;flex-direction:column;gap:2px}
-#side nav a{display:flex;align-items:center;gap:10px;color:var(--muted);text-decoration:none;padding:10px 12px;border-radius:10px;font-size:14px}
-#side nav a.active{background:var(--amber-bg);color:var(--amber)}
-#side nav a:hover:not(.active){background:#dfdacb;color:var(--text)}
-#side .foot{margin-top:auto;color:var(--dim);font-size:12px;padding:10px}
+#side{width:210px;background:var(--side);border-right:1.5px solid var(--border);padding:24px 12px 16px;display:flex;flex-direction:column;position:fixed;top:0;bottom:0}
+#side .brand{text-align:center;margin-bottom:22px}
+#side .mark{width:66px;height:66px;display:block;margin:0 auto 10px;border:1.5px solid var(--border);
+  outline:1px solid var(--border-soft);outline-offset:-4px;border-radius:2px;padding:3px;
+  background:var(--card);filter:sepia(.08) contrast(1.02)}
+#side .logo{font-family:var(--serif);font-size:17px;letter-spacing:.3em;text-transform:uppercase;padding-left:.3em}
+#side .powered{color:var(--dim);font-size:12px;font-style:italic;margin-top:2px}
+#side nav{display:flex;flex-direction:column;gap:3px}
+#side nav a{display:flex;align-items:center;gap:10px;color:var(--muted);text-decoration:none;
+  padding:9px 12px;border:1px solid transparent;border-radius:2px;font-size:14px}
+#side nav a svg{width:16px;height:16px;flex-shrink:0;color:var(--dim)}
+#side nav a.active{background:var(--card);border-color:var(--border);color:var(--amber-dim)}
+#side nav a.active svg{color:var(--amber)}
+#side nav a:hover:not(.active){background:#dcd1b4;color:var(--text)}
+#side .foot{margin-top:auto;color:var(--dim);font-size:12px;text-align:center;font-style:italic}
 /* main */
-#main{margin-left:210px;flex:1;padding:38px 46px;max-width:1180px}
+#main{margin-left:210px;flex:1;padding:38px 46px;max-width:1150px}
 .sub{color:var(--muted);margin:6px 0 24px}
 .row{display:flex;align-items:center;gap:10px}
 .spread{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);border-radius:999px;padding:7px 14px;font-size:13px;color:var(--muted)}
+.chip{display:inline-flex;align-items:center;gap:8px;background:var(--card);border:1.5px solid var(--border);border-radius:2px;padding:7px 14px;font-size:13px;color:var(--muted)}
 .chip b{color:var(--text)}
-.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px}
-.pill{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--amber-dim);color:var(--amber);border-radius:8px;padding:2px 9px;font-size:12px;background:var(--amber-bg)}
+.chip svg{width:15px;height:15px;color:var(--amber)}
+.card{background:var(--card);border:1.5px solid var(--border);border-radius:2px;padding:22px}
+.frame{outline:1px solid var(--border-soft);outline-offset:-6px}
+.pill{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--amber-dim);color:var(--amber-dim);border-radius:2px;padding:2px 9px;font-size:12px;background:var(--amber-bg)}
 .pill.plain{border-color:var(--border);color:var(--muted);background:transparent}
 .grid4{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.icon-sq{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;background:var(--amber-bg);border:1px solid #cfd0b6}
-.icon-sq.green{background:#e3ead9}
+.icon-sq{width:38px;height:38px;border-radius:2px;display:flex;align-items:center;justify-content:center;background:var(--amber-bg);border:1.5px solid var(--border);color:var(--amber-dim)}
+.icon-sq svg{width:18px;height:18px}
 .stat .label{color:var(--muted);font-size:13px;margin-top:12px}
-.stat .value{font-size:30px;font-weight:700;margin-top:2px}
+.stat .value{font-family:var(--serif);font-size:30px;font-weight:700;margin-top:2px}
 .stat .note{color:var(--dim);font-size:12px}
-.banner{border-radius:14px;padding:18px 20px;border:1px solid var(--border)}
-.banner.amber{background:linear-gradient(100deg,#eaeddb, #f2efe3 70%);border-color:#cfd0b6}
-.banner.gold{background:var(--card);border-color:var(--border)}
-.banner h4{font-family:Georgia,serif;color:var(--amber);font-size:15px}
-.banner p{color:var(--muted);font-size:13px;margin-top:4px}
-.kbd{background:#eae6d9;border:1px solid var(--border);border-radius:6px;padding:2px 8px;font-size:12px;color:var(--text)}
-.muted{color:var(--muted)} .dim{color:var(--dim)} .amber{color:var(--amber)} .green{color:var(--green)}
+.banner{border-radius:2px;padding:18px 20px;border:1.5px solid var(--border);outline:1px solid var(--border-soft);outline-offset:-6px}
+.banner.amber{background:var(--amber-bg)}
+.banner.gold{background:var(--card)}
+.banner h4{color:var(--amber-dim);font-size:16px}
+.banner p{color:var(--muted);font-size:13.5px;margin-top:4px}
+.kbd{background:#f3edda;border:1px solid var(--border);border-radius:2px;padding:2px 8px;font-size:12px;color:var(--text);font-family:ui-monospace,"SF Mono",Menlo,monospace}
+.muted{color:var(--muted)} .dim{color:var(--dim)} .amber{color:var(--amber-dim)} .green{color:var(--green)}
 .section-gap{margin-top:14px}
-.tabs{display:inline-flex;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:3px}
-.tabs button{border:0;background:transparent;color:var(--muted);padding:6px 14px;border-radius:8px}
-.tabs button.active{background:#e5e1d2;color:var(--text)}
-.entry{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-top:14px;display:flex;gap:16px}
+.tabs{display:inline-flex;background:var(--card2);border:1.5px solid var(--border);border-radius:2px;padding:3px}
+.tabs button{border:1px solid transparent;background:transparent;color:var(--muted);padding:5px 14px;border-radius:2px}
+.tabs button.active{background:var(--card);border-color:var(--border);color:var(--amber-dim)}
+.entry{background:var(--card);border:1.5px solid var(--border);border-radius:2px;padding:16px 18px;margin-top:14px;display:flex;gap:16px}
 .entry .body{flex:1;min-width:0}
-.entry .transcript{background:#f4f2ea;border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-top:10px;max-height:150px;overflow:auto;white-space:pre-wrap;font-size:14px;color:#433d33}
-.entry .actions{display:flex;flex-direction:column;gap:8px;width:150px;flex-shrink:0}
-.entry .actions button{width:100%;font-size:13px}
-.list-row{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:13px 16px;margin-top:10px}
-.trigger{border:1px solid var(--amber-dim);color:var(--amber);background:var(--amber-bg);border-radius:8px;padding:3px 10px;font-size:13px;white-space:nowrap}
-.arrow{color:var(--dim);margin:0 10px}
-.x{cursor:pointer;color:var(--dim);border:0;background:none;font-size:15px;padding:2px 6px}
+.entry .transcript{background:#fbf7ec;border:1px solid var(--border-soft);border-radius:2px;padding:12px 14px;margin-top:10px;max-height:150px;overflow:auto;white-space:pre-wrap;font-size:14.5px;color:#443c2e}
+.entry .actions{display:flex;flex-direction:column;gap:8px;width:160px;flex-shrink:0}
+.entry .actions button{width:100%;font-size:11.5px}
+.list-row{background:var(--card);border:1.5px solid var(--border);border-radius:2px;padding:13px 16px;margin-top:10px}
+.trigger{border:1px solid var(--red);color:var(--red);background:var(--rust-bg);border-radius:2px;padding:3px 10px;font-size:13px;white-space:nowrap}
+.arrow{color:var(--ochre);margin:0 10px}
+.x{cursor:pointer;color:var(--dim);border:0;background:none;font-size:15px;padding:2px 6px;letter-spacing:0;text-transform:none}
 .x:hover{color:var(--red)}
-.wordchip{display:inline-flex;align-items:center;gap:4px;background:var(--card2);border:1px solid var(--border);border-radius:999px;padding:5px 6px 5px 14px;margin:4px 6px 0 0}
+.wordchip{display:inline-flex;align-items:center;gap:4px;background:var(--card2);border:1px solid var(--border);border-radius:2px;padding:5px 6px 5px 14px;margin:4px 6px 0 0}
 .ring{transform:rotate(-90deg)}
 .field{display:flex;flex-direction:column;gap:6px;margin-top:16px;max-width:460px}
 .field label{font-size:13px;color:var(--muted)}
 .hidden{display:none!important}
-.footer-note{text-align:center;color:var(--dim);font-size:12px;margin:34px 0 10px}
+.footer-note{text-align:center;color:var(--dim);font-size:12px;font-style:italic;margin:34px 0 10px}
+.footer-note::before{content:"❦";display:block;font-style:normal;color:var(--ochre);font-size:15px;margin-bottom:5px}
 /* shortcuts */
 .shortcut-row{display:flex;align-items:center;gap:16px;padding:18px 0}
-.shortcut-row + .shortcut-row{border-top:1px solid var(--border)}
+.shortcut-row + .shortcut-row{border-top:1px solid var(--border-soft)}
 .shortcut-row .grow{flex:1;min-width:0}
 .shortcut-row .desc{color:var(--muted);font-size:13px;margin-top:2px}
 .keys{display:flex;align-items:center;gap:6px;min-height:34px}
 .keycap{display:inline-block;min-width:32px;text-align:center;padding:5px 10px;
-  background:#fdfcf9;border:1px solid #cfc9ba;border-bottom-width:3px;
-  border-radius:8px;font-size:14px;font-weight:600;color:var(--text)}
-.shortcut-row.recording .keys{outline:2px solid var(--amber);outline-offset:6px;border-radius:8px}
+  background:#fbf7ec;border:1.5px solid var(--border);border-bottom-width:3px;
+  border-radius:2px;font-size:14px;font-weight:600;color:var(--text)}
+.shortcut-row.recording .keys{outline:2px solid var(--amber);outline-offset:6px;border-radius:2px}
 .shortcut-row.recording .keycap{border-color:var(--amber-dim)}
 .hint{font-size:13px;color:var(--red);min-height:18px;margin-top:10px}
-#toast{position:fixed;bottom:26px;right:26px;background:var(--amber);color:#fdfcf9;
-  padding:11px 18px;border-radius:12px;font-weight:600;opacity:0;transition:opacity .25s;pointer-events:none}
+#toast{position:fixed;bottom:26px;right:26px;background:var(--amber);color:#f7f2e4;border:1.5px solid var(--amber-dim);
+  padding:11px 18px;border-radius:2px;font-weight:600;letter-spacing:.04em;opacity:0;transition:opacity .25s;pointer-events:none}
 .count-note{color:var(--dim);font-size:12px;margin-top:8px}
 @media(max-width:900px){.grid2{grid-template-columns:1fr}.entry{flex-direction:column}.entry .actions{flex-direction:row;width:auto}}
 </style>
 </head>
 <body>
+<!-- woodcut icon set -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-acorn" viewBox="0 0 24 24">
+      <path d="M5.5 9.5C5.5 6.5 8 4.5 12 4.5s6.5 2 6.5 5h-13Z"/>
+      <path d="M12 4.5c0-1.5 1-2.3 2-2.5"/>
+      <path d="M6.8 9.5c0 5.3 2.4 9 5.2 10.7 2.8-1.7 5.2-5.4 5.2-10.7"/>
+    </symbol>
+    <symbol id="i-leaf" viewBox="0 0 24 24">
+      <path d="M12 3.5C17.5 7 19 13 12 20.5 5 13 6.5 7 12 3.5Z"/><path d="M12 7v10"/>
+    </symbol>
+    <symbol id="i-book" viewBox="0 0 24 24">
+      <path d="M4 5.5c3-1.5 6-1.5 8 0 2-1.5 5-1.5 8 0v13c-3-1.5-6-1.5-8 0-2-1.5-5-1.5-8 0Z"/><path d="M12 5.5v13"/>
+    </symbol>
+    <symbol id="i-scissors" viewBox="0 0 24 24">
+      <circle cx="6.5" cy="7" r="2.3"/><circle cx="6.5" cy="17" r="2.3"/>
+      <path d="M8.4 8.4 19 16.8M8.4 15.6 19 7.2"/>
+    </symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3.2 2"/>
+    </symbol>
+    <symbol id="i-keycap" viewBox="0 0 24 24">
+      <rect x="3.5" y="6" width="17" height="12" rx="1.5"/><path d="M8 14.5h8"/>
+    </symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="3.2"/>
+      <path d="M12 3.5v2.7M12 17.8v2.7M3.5 12h2.7M17.8 12h2.7M6 6l1.9 1.9M16.1 16.1 18 18M6 18l1.9-1.9M16.1 7.9 18 6"/>
+    </symbol>
+    <symbol id="i-speaker" viewBox="0 0 24 24">
+      <path d="M4.5 9.5h3.2L13 5.5v13l-5.3-4H4.5Z"/>
+      <path d="M16 9.2c1.6 1.6 1.6 4 0 5.6M18.6 6.8c2.9 2.9 2.9 7.5 0 10.4"/>
+    </symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24">
+      <rect x="9.3" y="3" width="5.4" height="10.5" rx="2.7"/>
+      <path d="M6.3 11.2c0 3.6 2.4 5.8 5.7 5.8s5.7-2.2 5.7-5.8M12 17v4M9 21h6"/>
+    </symbol>
+    <symbol id="i-page" viewBox="0 0 24 24">
+      <path d="M6.5 3h7.5L17.5 6.5V21h-11Z"/><path d="M14 3v4h3.5M9.5 11h5M9.5 14.5h5M9.5 18h3"/>
+    </symbol>
+    <symbol id="i-keyboard" viewBox="0 0 24 24">
+      <rect x="3" y="7" width="18" height="10.5" rx="1.5"/>
+      <path d="M6.5 10.5h.01M10 10.5h.01M13.5 10.5h.01M17 10.5h.01M7.5 14h9"/>
+    </symbol>
+  </defs>
+</svg>
+
 <aside id="side">
-  <div class="logo">🐿️ WALNUT</div>
-  <div class="powered">Powered by you</div>
+  <div class="brand">
+    <img class="mark" src="/static/apple-touch-icon.png" alt="Walnut squirrel">
+    <div class="logo">Walnut</div>
+    <div class="powered">Powered by you</div>
+  </div>
   <nav id="nav">
-    <a href="#dashboard" data-page="dashboard">◉ Dashboard</a>
-    <a href="#dictionary" data-page="dictionary">T Dictionary</a>
-    <a href="#snippets" data-page="snippets">✂ Snippets</a>
-    <a href="#history" data-page="history">↺ History</a>
-    <a href="#shortcuts" data-page="shortcuts">⌘ Shortcuts</a>
-    <a href="#settings" data-page="settings">⚙ Settings</a>
+    <a href="#dashboard" data-page="dashboard"><svg class="ic"><use href="#i-acorn"/></svg> Dashboard</a>
+    <a href="#dictionary" data-page="dictionary"><svg class="ic"><use href="#i-book"/></svg> Dictionary</a>
+    <a href="#snippets" data-page="snippets"><svg class="ic"><use href="#i-scissors"/></svg> Snippets</a>
+    <a href="#history" data-page="history"><svg class="ic"><use href="#i-clock"/></svg> History</a>
+    <a href="#shortcuts" data-page="shortcuts"><svg class="ic"><use href="#i-keycap"/></svg> Shortcuts</a>
+    <a href="#settings" data-page="settings"><svg class="ic"><use href="#i-gear"/></svg> Settings</a>
   </nav>
-  <div class="foot">100% local · $0/mo<br>No cloud. No tokens.</div>
+  <div class="ornament"><svg class="ic" width="14" height="14"><use href="#i-acorn"/></svg></div>
+  <div class="foot">100% local · $0/mo<br>Nothing leaves the nest.</div>
 </aside>
 
 <main id="main">
@@ -120,7 +195,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--amber-dim)}
   <div class="spread">
     <div>
       <h1 id="greeting">Good afternoon</h1>
-      <div class="sub">Here's how Walnut has been helping you</div>
+      <div class="sub">Here's what Walnut has squirreled away for you</div>
     </div>
     <div class="row">
       <select id="period">
@@ -133,40 +208,41 @@ input:focus,select:focus,textarea:focus{border-color:var(--amber-dim)}
   </div>
 
   <div class="row" style="flex-wrap:wrap">
-    <span class="chip">🔥 Streak <b id="streak">–</b></span>
-    <span class="chip">🎙 Speaking <b id="speakwpm">–</b></span>
-    <span class="chip">⌨️ Typing <b id="typewpm">–</b></span>
+    <span class="chip"><svg class="ic"><use href="#i-leaf"/></svg> Streak <b id="streak">–</b></span>
+    <span class="chip"><svg class="ic"><use href="#i-mic"/></svg> Speaking <b id="speakwpm">–</b></span>
+    <span class="chip"><svg class="ic"><use href="#i-keyboard"/></svg> Typing <b id="typewpm">–</b></span>
   </div>
 
   <div class="banner gold section-gap spread" id="guide">
     <div>
-      <h4 style="color:var(--text)">📖 Learn how to use Walnut</h4>
+      <h4 style="color:var(--text)">Learn how to use Walnut</h4>
       <p>Practice read-aloud first, then dictation and snippets. Watch the menu bar icon while recording.</p>
-      <p style="margin-top:8px">🔊 Read aloud <span class="kbd" id="kbd-speak">⌃⌥S</span>
-         &nbsp; ✦ Dictate <span class="kbd" id="kbd-dictate">⌃⌥␣</span></p>
+      <p style="margin-top:8px">Read aloud <span class="kbd" id="kbd-speak">⌃⌥S</span>
+         &nbsp;·&nbsp; Dictate <span class="kbd" id="kbd-dictate">⌃⌥␣</span></p>
     </div>
     <button class="x" onclick="dismissGuide()">✕</button>
   </div>
 
-  <div class="card section-gap spread" style="border-color:#c5d2bc;background:#f3f6ee">
+  <div class="card frame section-gap spread" style="background:#edf0da;border-color:#b4bd93">
     <div>
-      <div class="green" style="font-size:13px">🕐 Time Saved</div>
-      <div class="green" style="font-size:44px;font-weight:700;font-family:Georgia,serif" id="saved">0s</div>
+      <div class="green row" style="font-size:13px;gap:7px">
+        <svg class="ic" width="15" height="15"><use href="#i-acorn"/></svg> Time Saved</div>
+      <div class="green" style="font-size:44px;font-weight:700;font-family:var(--serif)" id="saved">0s</div>
       <div style="font-size:13px" class="muted">vs typing at <span id="typewpm2">–</span> WPM (<a href="#settings">your speed</a>)</div>
     </div>
     <div style="text-align:center">
       <svg width="96" height="96" viewBox="0 0 96 96">
-        <circle cx="48" cy="48" r="42" fill="none" stroke="#ddd7c8" stroke-width="7"/>
+        <circle cx="48" cy="48" r="42" fill="none" stroke="#d4c9ab" stroke-width="7"/>
         <circle id="ringfg" class="ring" cx="48" cy="48" r="42" fill="none" stroke="var(--green)"
           stroke-width="7" stroke-linecap="round" stroke-dasharray="0 264" style="transform-origin:48px 48px"/>
-        <text x="48" y="54" text-anchor="middle" fill="var(--text)" font-size="18" font-weight="700" id="momentum">0%</text>
+        <text x="48" y="54" text-anchor="middle" fill="var(--text)" font-size="18" font-weight="700" font-family="Palatino,Georgia,serif" id="momentum">0%</text>
       </svg>
       <div class="dim" style="font-size:12px">This period's momentum</div>
     </div>
   </div>
 
   <div class="banner amber section-gap">
-    <h4>✨ Make Walnut sound like <span style="font-style:italic">you</span></h4>
+    <h4>Make Walnut sound like <span style="font-style:italic">you</span></h4>
     <p>Add words to your dictionary so transcriptions match your vocabulary. Create snippets for phrases you use often.</p>
     <div class="row" style="margin-top:12px">
       <button onclick="location.hash='dictionary'">Dictionary</button>
@@ -175,16 +251,16 @@ input:focus,select:focus,textarea:focus{border-color:var(--amber-dim)}
   </div>
 
   <div class="grid4 section-gap">
-    <div class="card stat"><div class="icon-sq">🔊</div>
+    <div class="card stat"><div class="icon-sq"><svg class="ic"><use href="#i-speaker"/></svg></div>
       <div class="label">Read-Back Sessions</div><div class="value" id="s-rb">0</div>
       <div class="note">Text-to-speech</div></div>
-    <div class="card stat"><div class="icon-sq">🎙</div>
+    <div class="card stat"><div class="icon-sq"><svg class="ic"><use href="#i-mic"/></svg></div>
       <div class="label">Dictation Sessions</div><div class="value" id="s-dic">0</div>
       <div class="note">Voice-to-text</div></div>
-    <div class="card stat"><div class="icon-sq">📄</div>
+    <div class="card stat"><div class="icon-sq"><svg class="ic"><use href="#i-page"/></svg></div>
       <div class="label">Words Dictated</div><div class="value" id="s-words">0</div>
       <div class="note">Total transcribed</div></div>
-    <div class="card stat"><div class="icon-sq green">⌨️</div>
+    <div class="card stat"><div class="icon-sq"><svg class="ic"><use href="#i-keyboard"/></svg></div>
       <div class="label">Keystrokes Saved</div><div class="value" id="s-keys">0</div>
       <div class="note">Characters you didn't type</div></div>
   </div>
@@ -205,12 +281,12 @@ input:focus,select:focus,textarea:focus{border-color:var(--amber-dim)}
   </div>
 
   <div class="card section-gap">
-    <div style="font-size:13px" class="amber">⚡ Performance Summary</div>
+    <div class="amber" style="font-size:12px;letter-spacing:.1em;text-transform:uppercase">Performance Summary</div>
     <div class="grid4" style="margin-top:14px">
-      <div><div class="value" style="font-size:26px;font-weight:700" id="p-active">0</div><div class="muted" style="font-size:13px">Active days</div></div>
-      <div><div class="value" style="font-size:26px;font-weight:700" id="p-longest">0</div><div class="muted" style="font-size:13px">Longest streak</div></div>
-      <div><div class="value" style="font-size:26px;font-weight:700" id="p-snip">0</div><div class="muted" style="font-size:13px">Snippet uses</div></div>
-      <div><div class="value" style="font-size:26px;font-weight:700" id="p-focus">0s</div><div class="muted" style="font-size:13px">Focus time</div></div>
+      <div><div class="value" style="font-size:26px;font-weight:700;font-family:var(--serif)" id="p-active">0</div><div class="muted" style="font-size:13px">Active days</div></div>
+      <div><div class="value" style="font-size:26px;font-weight:700;font-family:var(--serif)" id="p-longest">0</div><div class="muted" style="font-size:13px">Longest streak</div></div>
+      <div><div class="value" style="font-size:26px;font-weight:700;font-family:var(--serif)" id="p-snip">0</div><div class="muted" style="font-size:13px">Snippet uses</div></div>
+      <div><div class="value" style="font-size:26px;font-weight:700;font-family:var(--serif)" id="p-focus">0s</div><div class="muted" style="font-size:13px">Focus time</div></div>
     </div>
   </div>
 
@@ -253,8 +329,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--amber-dim)}
       <div class="sub">Stop typing the same things over and over. Save it once. Say it. Walnut types it for you.</div>
     </div>
     <div class="row">
-      <button id="snip-toggle" class="primary" onclick="toggleSnippets()">⏻ On</button>
-      <button class="primary" onclick="showNewSnippet()">＋ New</button>
+      <button id="snip-toggle" class="primary" onclick="toggleSnippets()">On</button>
+      <button class="primary" onclick="showNewSnippet()">+ New</button>
     </div>
   </div>
 
@@ -281,7 +357,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--amber-dim)}
     </div>
   </div>
 
-  <input id="snip-search" class="section-gap" placeholder="🔍 Search snippets…" style="width:100%" oninput="renderSnippets()">
+  <input id="snip-search" class="section-gap" placeholder="Search snippets…" style="width:100%" oninput="renderSnippets()">
   <div id="snip-list"></div>
 </section>
 
@@ -297,7 +373,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--amber-dim)}
 
   <div class="card">
     <div class="spread">
-      <input id="hist-search" placeholder="🔍 Search history…" style="flex:1;max-width:420px" oninput="loadHistory()">
+      <input id="hist-search" placeholder="Search history…" style="flex:1;max-width:420px" oninput="loadHistory()">
       <div class="tabs" id="hist-tabs">
         <button data-kind="" class="active">All</button>
         <button data-kind="dictation">Dictation</button>
@@ -316,14 +392,14 @@ input:focus,select:focus,textarea:focus{border-color:var(--amber-dim)}
 
   <div class="card" style="padding:4px 22px">
     <div class="shortcut-row" id="row-speak">
-      <div class="icon-sq">🔊</div>
+      <div class="icon-sq"><svg class="ic"><use href="#i-speaker"/></svg></div>
       <div class="grow"><b>Narrate selection</b>
         <div class="desc">Reads whatever text you've selected aloud. Press again to stop.</div></div>
       <div class="keys" id="keys-speak"></div>
       <button id="btn-speak" onclick="startRecord('speak')">Change</button>
     </div>
     <div class="shortcut-row" id="row-dictate">
-      <div class="icon-sq">🎙</div>
+      <div class="icon-sq"><svg class="ic"><use href="#i-mic"/></svg></div>
       <div class="grow"><b>Dictation</b>
         <div class="desc">Start / stop voice typing into whatever app you're using.</div></div>
       <div class="keys" id="keys-dictate"></div>
@@ -418,11 +494,8 @@ function sparkline(svg, data){
   const line = pts.map(p=>p.join(',')).join(' ');
   const area = `${pad},${H-pad} ${line} ${W-pad},${H-pad}`;
   el.setAttribute('viewBox', `0 0 ${W} ${H}`);
-  el.innerHTML = `<defs><linearGradient id="g${svg.slice(1)}" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="var(--amber)" stop-opacity=".35"/>
-      <stop offset="1" stop-color="var(--amber)" stop-opacity="0"/></linearGradient></defs>
-    <polygon points="${area}" fill="url(#g${svg.slice(1)})"/>
-    <polyline points="${line}" fill="none" stroke="var(--amber)" stroke-width="2.5" stroke-linejoin="round"/>`;
+  el.innerHTML = `<polygon points="${area}" fill="var(--amber)" fill-opacity=".12"/>
+    <polyline points="${line}" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linejoin="round"/>`;
 }
 async function loadDashboard(){
   $('#greeting').textContent = greeting();
@@ -462,7 +535,7 @@ async function loadDictionary(){
   const words = await api('/api/words');
   $('#word-list').innerHTML = words.map(w =>
     `<span class="wordchip">${esc(w.word)}<button class="x" onclick="delWord(${w.id})">✕</button></span>`).join('')
-    || '<div class="dim section-gap">No words yet.</div>';
+    || '<div class="dim section-gap">No words gathered yet.</div>';
   const reps = await api('/api/replacements');
   $('#repl-list').innerHTML = reps.map(r =>
     `<div class="list-row spread"><span><span class="trigger">${esc(r.wrong)}</span>
@@ -493,7 +566,7 @@ async function loadSnippets(){
 }
 function renderSnippets(){
   const t = $('#snip-toggle');
-  t.textContent = SNIPS_ON ? '⏻ On' : '⏻ Off';
+  t.textContent = SNIPS_ON ? 'On' : 'Off';
   t.classList.toggle('primary', SNIPS_ON);
   const q = $('#snip-search').value.trim().toLowerCase();
   const list = SNIPS.filter(s => !q || s.trigger.toLowerCase().includes(q)
@@ -505,7 +578,7 @@ function renderSnippets(){
           <span class="arrow">→</span><span class="${s.enabled?'':'dim'}">${esc(s.expansion.split('\n')[0]).slice(0,90)}</span></span>
         <span class="row">
           <span class="dim" style="font-size:12px">${s.uses}× used</span>
-          <button class="ghost" style="padding:4px 10px;font-size:12px" onclick="toggleOne(${s.id})">${s.enabled?'Disable':'Enable'}</button>
+          <button class="ghost" style="padding:4px 10px;font-size:11px" onclick="toggleOne(${s.id})">${s.enabled?'Disable':'Enable'}</button>
           <button class="x" onclick="delSnippet(${s.id})">✕</button>
         </span>
       </div>
@@ -550,29 +623,29 @@ async function loadHistory(){
       year:'numeric', hour:'numeric', minute:'2-digit'});
     const saved = r.type === 'dictation'
       ? Math.max(0, Math.round(r.words / (window.TYPING_WPM||60) * 60 - r.duration)) : 0;
-    const kind = r.type === 'dictation' ? '🎙 Dictation' : '🔊 Readback';
+    const kind = r.type === 'dictation' ? 'Dictation' : 'Readback';
     return `<div class="entry">
       <div class="body">
         <div class="row" style="flex-wrap:wrap">
           <span class="pill">${kind}</span>
           <span class="dim" style="font-size:13px">${dt}</span>
-          <span class="pill plain">💻 Local</span>
+          <span class="pill plain">Local</span>
           <span class="dim" style="font-size:13px">${r.words} words / ${fmtDur(r.duration)}${saved?` / ${fmtDur(saved)} saved`:''}</span>
-          ${r.snippet ? '<span class="pill">✂ snippet</span>' : ''}
+          ${r.snippet ? '<span class="pill">snippet</span>' : ''}
         </div>
         <div class="spread" style="margin-top:10px">
           <span class="dim" style="font-size:11px;letter-spacing:1px">${r.type.toUpperCase()}</span>
-          <button style="padding:5px 10px;font-size:12px" onclick="copyText(${r.id}, this)">⧉ Copy</button>
+          <button style="padding:5px 10px;font-size:11px" onclick="copyText(${r.id}, this)">⧉ Copy</button>
         </div>
         <div class="transcript">${esc(r.text)}</div>
       </div>
       <div class="actions">
         <button onclick="api('/api/history/${r.id}/replay',{method:'POST'})">▶ Replay</button>
-        ${r.audio_path ? `<button onclick="api('/api/history/${r.id}/reveal',{method:'POST'})">📁 Show in Finder</button>` : ''}
-        <button class="danger" onclick="delHistory(${r.id})">🗑 Delete</button>
+        ${r.audio_path ? `<button onclick="api('/api/history/${r.id}/reveal',{method:'POST'})">Show in Finder</button>` : ''}
+        <button class="danger" onclick="delHistory(${r.id})">Delete</button>
       </div>
     </div>`;
-  }).join('') || '<div class="dim section-gap">No sessions yet. Dictate or narrate something!</div>';
+  }).join('') || '<div class="dim section-gap">Nothing squirreled away yet. Dictate or narrate something!</div>';
   window.HIST_ROWS = Object.fromEntries(rows.map(r => [r.id, r.text]));
 }
 async function copyText(id, btn){
