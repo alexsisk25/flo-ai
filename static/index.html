@@ -431,13 +431,16 @@ svg.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;strok
 
   <div class="card section-gap">
     <h3 class="serif">Dictation</h3>
+    <div class="field"><label>Your Mac</label>
+      <div id="sys-summary" class="dim" style="font-size:13px">Detecting…</div></div>
     <div class="field"><label>Whisper model (all local)</label>
-      <select id="set-model">
-        <option value="large-v3-turbo">large-v3-turbo — best accuracy, slow on CPU (1.6 GB)</option>
-        <option value="small.en">small.en — fast, good English accuracy (460 MB)</option>
-        <option value="base.en">base.en — fastest, lighter accuracy (140 MB)</option>
-        <option value="small">small — multilingual (460 MB)</option>
-        <option value="base">base — multilingual, fastest (140 MB)</option>
+      <select id="set-model"></select>
+      <div id="model-note" class="dim" style="font-size:12px;margin-top:6px"></div></div>
+    <div class="field"><label>Engine</label>
+      <select id="set-backend">
+        <option value="auto">Automatic — best for this Mac (recommended)</option>
+        <option value="mlx">mlx-whisper — Apple Silicon GPU</option>
+        <option value="faster-whisper">faster-whisper — CPU, works everywhere</option>
       </select></div>
     <div class="field"><label>Language (blank = auto-detect)</label>
       <input id="set-lang" placeholder="en"></div>
@@ -640,13 +643,50 @@ async function loadHistory(){
         <div class="transcript">${esc(r.text)}</div>
       </div>
       <div class="actions">
-        <button onclick="api('/api/history/${r.id}/replay',{method:'POST'})">▶ Replay</button>
+        <button id="replay-${r.id}" onclick="toggleReplay(${r.id})">▶ Replay</button>
         ${r.audio_path ? `<button onclick="api('/api/history/${r.id}/reveal',{method:'POST'})">Show in Finder</button>` : ''}
         <button class="danger" onclick="delHistory(${r.id})">Delete</button>
       </div>
     </div>`;
   }).join('') || '<div class="dim section-gap">Nothing squirreled away yet. Dictate or narrate something!</div>';
   window.HIST_ROWS = Object.fromEntries(rows.map(r => [r.id, r.text]));
+  paintReplayButtons();
+}
+
+/* Replay/Stop. Narration and afplay each preempt whatever was already making
+   noise, so at most one card is ever audible — hence a single PLAYING_ID
+   rather than per-card state. While something plays we poll the server so the
+   button reverts on its own when the clip simply ends. */
+let PLAYING_ID = null, PLAY_POLL = null;
+
+function paintReplayButtons(){
+  document.querySelectorAll('[id^="replay-"]').forEach(b => {
+    const id = Number(b.id.slice('replay-'.length));
+    b.textContent = id === PLAYING_ID ? '■ Stop' : '▶ Replay';
+    b.classList.toggle('active', id === PLAYING_ID);
+  });
+}
+function stopPolling(){ clearInterval(PLAY_POLL); PLAY_POLL = null; }
+function startPolling(){
+  stopPolling();
+  // speak() runs on a worker thread, so `say` may not have spawned yet.
+  // Wait before the first poll or we'd read "not playing" and reset at once.
+  setTimeout(() => {
+    PLAY_POLL = setInterval(async () => {
+      const { playing } = await api('/api/speech/status');
+      if (!playing){ PLAYING_ID = null; stopPolling(); paintReplayButtons(); }
+    }, 500);
+  }, 800);
+}
+async function stopReplay(){
+  stopPolling();
+  await api('/api/speech/stop', {method:'POST'});
+  PLAYING_ID = null; paintReplayButtons();
+}
+async function toggleReplay(id){
+  if (PLAYING_ID === id) return stopReplay();
+  await api(`/api/history/${id}/replay`, {method:'POST'});
+  PLAYING_ID = id; paintReplayButtons(); startPolling();
 }
 async function copyText(id, btn){
   await navigator.clipboard.writeText(window.HIST_ROWS[id]);
@@ -742,24 +782,51 @@ function toast(msg){
 }
 
 /* ---------- settings ---------- */
+/* The model list comes from the server, not the page: which models make sense
+   depends on whether this Mac transcribes on the GPU or the CPU. */
+function renderModels(sys, chosen){
+  $('#sys-summary').textContent =
+    `${sys.chip} (${sys.machine}) — ${sys.backend} on ${sys.accelerator}`;
+  $('#set-model').innerHTML = sys.models.map(m => {
+    const tags = [m.size];
+    if (m.recommended) tags.push('recommended here');
+    if (m.slow_here) tags.push('slow on this Mac');
+    if (m.english_only) tags.push('English only');
+    return `<option value="${m.id}">${esc(m.label)} — ${tags.join(', ')}</option>`;
+  }).join('');
+  $('#set-model').value = chosen;
+  paintModelNote(sys);
+}
+function paintModelNote(sys){
+  const m = sys.models.find(x => x.id === $('#set-model').value);
+  $('#model-note').textContent = m ? m.note : '';
+}
 async function loadSettings(){
-  const [s, voices] = await Promise.all([api('/api/settings'), api('/api/voices')]);
+  const [s, voices, sys] = await Promise.all([
+    api('/api/settings'), api('/api/voices'), api('/api/system')]);
   window.TYPING_WPM = +s.typing_wpm;
+  window.SYS = sys;
   $('#set-voice').innerHTML = '<option value="">System default</option>' +
     voices.map(v => `<option value="${esc(v.name)}">${esc(v.name)} (${v.locale})</option>`).join('');
   $('#set-voice').value = s.tts_voice || '';
   $('#set-rate').value = s.tts_rate; $('#rate-label').textContent = s.tts_rate;
-  $('#set-model').value = s.stt_model;
+  renderModels(sys, s.stt_model);
+  $('#set-backend').value = s.stt_backend || 'auto';
   $('#set-lang').value = s.stt_language;
   $('#set-wpm').value = s.typing_wpm;
 }
 $('#set-rate').addEventListener('input', e => $('#rate-label').textContent = e.target.value);
+$('#set-model').addEventListener('change', () => paintModelNote(window.SYS));
 async function saveSettings(){
   await api('/api/settings', {method:'PUT', body: JSON.stringify({
     tts_voice: $('#set-voice').value, tts_rate: $('#set-rate').value,
-    stt_model: $('#set-model').value, stt_language: $('#set-lang').value.trim(),
+    stt_model: $('#set-model').value, stt_backend: $('#set-backend').value,
+    stt_language: $('#set-lang').value.trim(),
     typing_wpm: $('#set-wpm').value})});
   window.TYPING_WPM = +$('#set-wpm').value;
+  // Switching engine changes which models are sensible; re-read the server.
+  window.SYS = await api('/api/system');
+  renderModels(window.SYS, $('#set-model').value);
   $('#set-status').textContent = '✓ Saved';
   setTimeout(() => $('#set-status').textContent = '', 2000);
 }

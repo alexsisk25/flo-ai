@@ -1,95 +1,136 @@
 # Walnut 🥜
 
-Local voice dictation and narration for macOS — the two-way voice loop,
-rebuilt to run **100% locally on your Mac**. No cloud, no tokens, no
-subscription. Speech-to-text is `mlx-whisper` on the Apple Silicon GPU;
-narration is macOS's built-in `say`.
+A local, free rebuild of commercial voice dictation tools
+and Wispr Flow — the two-way voice loop, running **100% on your Mac**.
 
-## Run it
+Talk to any app and Walnut types what you said. Select text anywhere and Walnut
+reads it aloud. Nothing leaves the machine: no cloud, no API keys, no tokens,
+no subscription.
+
+Walnut fits itself to whatever Mac it lands on:
+
+| Your Mac | Engine | Runs on | Default model |
+|---|---|---|---|
+| Apple Silicon (M1–M5) | `mlx-whisper` | GPU (Metal) | `large-v3-turbo` |
+| Intel | `faster-whisper` | CPU (int8) | `small.en` |
+
+You don't configure this. Walnut detects the chip, picks the engine, and picks
+a model that is actually pleasant to use on that hardware — the big model where
+the GPU makes it cheap, a small one where transcription lands on the CPU.
+
+## Install
 
 ```sh
-cd ~/walnut
+git clone https://github.com/Bjepp77/walnut.git
+cd walnut
+./install.sh            # add --login to also start Walnut at login
+```
+
+That installs [uv](https://docs.astral.sh/uv/) if you don't have it, pulls
+dependencies, and runs a self-test. Then:
+
+```sh
 uv run walnut.py
 ```
 
-A small squirrel appears in the menu bar (a filled dot joins it while
-recording, a hollow dot while transcribing) and the dashboard is served at
-**http://127.0.0.1:8765**. Walnut is installed to start at login via
-`~/Library/LaunchAgents/com.brandon.walnut.plist`; to stop that, run
-`launchctl unload ~/Library/LaunchAgents/com.brandon.walnut.plist`.
+A squirrel appears in the menu bar and the dashboard opens at
+**http://127.0.0.1:8765**.
 
-## What it does
+### macOS permissions (once)
+
+Walnut cannot grant these for you.
+
+1. **Accessibility** — System Settings → Privacy & Security → Accessibility →
+   add your terminal. Needed for global hotkeys and typing into other apps.
+   **Restart Walnut afterwards.**
+2. **Microphone** — macOS prompts on first dictation. Allow.
+3. **Input Monitoring** — only if hotkeys still don't fire.
+
+Running via `--login`? The launch agent runs Walnut through `uv`, so grant the
+permissions to `uv` (macOS will name it when it asks).
+
+## Use it
 
 | Hotkey | Action |
 |---|---|
-| `⌃⌥S` | Narrate whatever text is selected in ANY app. Press again to stop. |
-| `⌃⌥Space` | Toggle dictation: chime → speak → chime, transcript is typed into the frontmost app. |
+| `⌃⌥S` | Narrate the selected text in ANY app. Press again to stop. |
+| `⌃⌥Space` | Toggle dictation: chime → speak → chime → transcript is typed. |
 
-Hotkeys are configurable on the dashboard's **Shortcuts** page (applies
-instantly, no restart).
+Both are re-bindable on the dashboard's **Shortcuts** page, live, no restart.
 
 ## The dashboard
 
-- **Dashboard** — streak, speaking vs typing WPM, time saved, session counts,
-  words dictated, keystrokes saved, activity charts, performance summary.
-- **Dictionary** — words Whisper should recognize (names, acronyms) plus
-  fix-ups (auto-corrections like "hub spot" → "HubSpot").
-- **Snippets** — say a phrase, Walnut types the expansion ("insert my email"
-  → your address). Global on/off, per-snippet enable, use counts, search.
-- **History** — every dictation/read-back session: search, filter, copy the
-  transcript, **Replay** (dictations replay the actual audio recording),
-  **Show in Finder** (recordings live in `recordings/`), delete.
-- **Shortcuts / Settings** — hotkeys, narration voice + speed, Whisper model,
-  language, and your typing WPM (drives the time-saved math).
+- **Dashboard** — streak, speaking vs typing WPM, time saved, words dictated,
+  keystrokes saved, activity charts.
+- **Dictionary** — words Whisper should know (names, acronyms) and fix-ups
+  (`"hub spot"` → `HubSpot`). Dictionary entries are fed to Whisper as hints,
+  which genuinely rescues proper nouns on the smaller models.
+- **Snippets** — say a phrase, Walnut types the expansion.
+- **History** — every session: search, copy, **Replay** (dictations replay the
+  original audio; press again to stop), Show in Finder, delete.
+- **Settings** — voice, speed, language, typing WPM, and the model/engine
+  picker, which shows what your Mac chose and flags models that will be slow
+  on it.
 
-All data lives in `walnut.db` (SQLite) on this Mac. UI edits apply live.
+All data lives in `walnut.db` (SQLite) next to the code. It never leaves.
 
-## One-time macOS permissions
+## Choosing a model
 
-1. **Accessibility** — System Settings → Privacy & Security → Accessibility →
-   add your terminal app. Required for global hotkeys and typing into other
-   apps. Restart Walnut after granting.
-2. **Microphone** — macOS prompts on first dictation; click Allow.
-3. **Input Monitoring** — if hotkeys still don't fire, also add your terminal
-   there.
+The Settings page lists these; sizes are the download.
 
-## Tuning
+| Model | Size | Notes |
+|---|---|---|
+| `large-v3-turbo` | 1.6 GB | Best accuracy, multilingual. Great on Apple Silicon, slow on Intel. |
+| `medium.en` | 1.5 GB | Very accurate English. Heavy on Intel. |
+| `small.en` | 460 MB | The sweet spot on Intel. |
+| `base.en` | 140 MB | Fastest. Fumbles names — lean on the Dictionary. |
+| `small` / `base` | 460 / 140 MB | Multilingual equivalents. |
 
-- **Voices**: better ones (Siri / Enhanced / Premium) download in System
-  Settings → Accessibility → Spoken Content → System Voice → Manage Voices,
-  then pick them on the Settings page.
-- **Model**: default `whisper-large-v3-turbo` (~1.6 GB, ≈1 s per sentence on
-  an M5). Settings page offers smaller/faster models.
+Models download on first use and are cached by Hugging Face under
+`~/.cache/huggingface`.
 
-## Self-test (no mic needed)
+Walnut stores one canonical name (`small.en`) and translates it per engine, so
+the same `walnut.db` works if you move it between an Intel and an M-series Mac.
+
+You can pin the engine on the Settings page (or `backend` in `config.toml`) if
+you want to force `faster-whisper` on Apple Silicon — useful for comparing.
+
+## Troubleshooting
 
 ```sh
-uv run walnut.py --test
+uv run walnut.py --doctor   # what chip, engine, and model did Walnut find?
+uv run walnut.py --test     # end-to-end check, no mic needed. Two PASS lines.
 ```
 
-TTS renders a phrase → Whisper transcribes it back → vocabulary fix-ups are
-verified. Should print two PASS lines.
+`--test` runs against a *copy* of your database, so it never touches your data.
+
+Hotkeys silently doing nothing is almost always Accessibility permission not
+granted, or granted to the wrong binary (your terminal when you run Walnut by
+hand, `uv` when it starts at login).
 
 ## Start at login
 
-Already installed (`~/Library/LaunchAgents/com.brandon.walnut.plist`,
-KeepAlive on — it relaunches if it crashes). Logs go to `/tmp/walnut.log`.
-
 ```sh
-launchctl unload ~/Library/LaunchAgents/com.brandon.walnut.plist  # stop + disable
-launchctl load   ~/Library/LaunchAgents/com.brandon.walnut.plist  # re-enable
+./install.sh --login      # enable
+./install.sh --uninstall  # disable (keeps walnut.db and recordings)
 ```
 
-When run via launchd, grant Accessibility/Microphone to
-`~/walnut/.venv/bin/python3` if macOS prompts.
+Logs go to `/tmp/walnut.log`. The agent has `KeepAlive` on, so it relaunches
+if it crashes.
 
 ## Files
 
 ```
-walnut.py   entry point + self-test     core.py   narration/dictation/hotkeys
-app.py      menu bar app (rumps)        store.py  SQLite (settings/history/…)
-server.py   Flask API                   static/index.html  the dashboard UI
-walnut.db   your data                   recordings/  dictation audio (wav)
+walnut.py   entry point, --test, --doctor   core.py    narration/dictation/hotkeys
+stt.py      engine + model selection        store.py   SQLite (settings/history/…)
+app.py      menu bar app (rumps)            server.py  Flask API
+install.sh  installer                       static/index.html  the dashboard
 ```
 
-`config.toml` is only read once, on first run, to seed the database.
+`config.toml` is read once, on first run, to seed the database. After that the
+dashboard is the source of truth. Delete `walnut.db` to re-seed.
+
+## Requirements
+
+macOS (uses the built-in `say` and `afplay`), Python 3.12 or 3.13 — `uv`
+handles Python for you.

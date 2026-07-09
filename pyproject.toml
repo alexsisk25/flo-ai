@@ -4,16 +4,30 @@ version = "0.1.0"
 requires-python = ">=3.12,<3.14"
 dependencies = [
     "flask>=3.1.3",
-    "faster-whisper>=1.1.0",
     "numpy>=2.4.6",
     "pynput>=1.8.2",
     "rumps>=0.4.0",
     "sounddevice>=0.5.5",
     "soundfile>=0.14.0",
+    # Speech-to-text. Both are installed on Apple Silicon; Walnut picks MLX at
+    # runtime and keeps faster-whisper as a fallback. Intel Macs get only
+    # faster-whisper — mlx has no x86_64 wheels, hence the marker.
+    "faster-whisper>=1.1.0",
+    "mlx-whisper>=0.4.3; sys_platform == 'darwin' and platform_machine == 'arm64'",
 ]
 
 [tool.uv]
-# Force resolution to versions with Intel Mac wheels (onnxruntime etc.).
+# Lock for BOTH Macs, so one uv.lock serves an Intel clone and an M-series
+# clone. Without this, resolving on arm64 would omit the x86_64 wheels
+# (onnxruntime, ctranslate2) that an Intel friend needs.
 required-environments = [
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
     "sys_platform == 'darwin' and platform_machine == 'x86_64'",
+]
+
+# mlx-whisper declares torch (~2 GB) but only imports it in torch_whisper.py,
+# a weight-conversion module nothing in the inference path touches. Dropping
+# it via an unsatisfiable marker keeps `git clone && uv run` a small download.
+override-dependencies = [
+    "torch; sys_platform == 'no-such-platform'",
 ]

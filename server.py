@@ -8,6 +8,7 @@ from pathlib import Path
 
 from flask import Flask, jsonify, request, send_from_directory
 
+import stt
 import store
 
 HERE = Path(__file__).resolve().parent
@@ -121,14 +122,32 @@ def history_replay(hid):
     entry = store.history_get(hid)
     if not entry:
         return jsonify({"error": "not found"}), 404
+    if not CORE:
+        return jsonify({"error": "core not ready"}), 503
     audio = entry.get("audio_path")
     if audio and Path(audio).exists():
-        subprocess.Popen(["afplay", audio], stdout=subprocess.DEVNULL,
-                         stderr=subprocess.DEVNULL)
-    elif CORE:
+        # via CORE so the handle is kept and /api/speech/stop can cut it
+        CORE.play_file(audio)
+    else:
         threading.Thread(target=CORE.speak, args=(entry["text"], False),
                          daemon=True).start()
     return jsonify({"ok": True})
+
+
+# ------------------------------------------------------------------- speech
+# Only one thing can be audible at a time — speak() and play_file() each stop
+# whatever preceded them — so the UI tracks a single "now playing" card.
+
+@app.route("/api/speech/stop", methods=["POST"])
+def speech_stop():
+    if CORE:
+        CORE.stop_all()
+    return jsonify({"ok": True, "playing": False})
+
+
+@app.route("/api/speech/status")
+def speech_status():
+    return jsonify({"playing": bool(CORE and CORE.busy_audio())})
 
 
 @app.route("/api/history/<int:hid>/reveal", methods=["POST"])
@@ -150,12 +169,23 @@ def settings():
         hotkeys_changed = False
         for key in store.DEFAULTS:
             if key in d:
-                if key.startswith("hotkey_") and str(d[key]) != store.get(key):
+                value = str(d[key])
+                if key == "stt_model":
+                    value = stt.canonical(value)  # never store an unknown id
+                if key.startswith("hotkey_") and value != store.get(key):
                     hotkeys_changed = True
-                store.set_setting(key, str(d[key]))
+                store.set_setting(key, value)
         if hotkeys_changed and HOTKEYS:
             HOTKEYS.reload()
     return jsonify(store.all_settings())
+
+
+@app.route("/api/system")
+def system():
+    """What hardware Walnut found, and which engine it chose."""
+    info = stt.describe(store.get("stt_backend"))
+    info["models"] = stt.catalog(info["backend"])
+    return jsonify(info)
 
 
 @app.route("/api/voices")

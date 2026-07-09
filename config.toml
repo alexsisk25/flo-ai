@@ -1,4 +1,8 @@
-# Walnut configuration — edit freely, then restart Walnut.
+# Walnut configuration.
+#
+# This file is read ONCE, on first run, to seed walnut.db. After that, edit
+# everything from the dashboard at http://127.0.0.1:8765 — changes apply live.
+# (To re-seed from this file, delete walnut.db and restart.)
 
 [hotkeys]
 speak = "<ctrl>+<alt>+s"        # narrate selected text (press again to stop)
@@ -9,20 +13,24 @@ voice = ""   # empty = system default; run `say -v '?'` to list voices
 rate = 210   # words per minute (say's default is ~175)
 
 [stt]
-# Great accuracy, ~1.6 GB download (faster-whisper, runs on CPU).
-# Smaller/faster alternatives: "small" (~460 MB), "base" (~140 MB)
-model = "large-v3-turbo"
+# Leave both empty and Walnut fits itself to your Mac:
+#   Apple Silicon -> mlx-whisper on the GPU, large-v3-turbo
+#   Intel         -> faster-whisper on the CPU, small.en
+# Override the model with any id from the Settings page (e.g. "small.en"),
+# or pin the engine with backend = "mlx" / "faster-whisper".
+model = ""
+backend = ""
 language = "en"
 
 [vocabulary]
 # Names, acronyms, and jargon Whisper should recognize (used as hints).
-hints = []
+# Replace these with your own — they are just examples.
+hints = ["Shopify", "SKU", "RMA", "Kubernetes", "Postgres"]
 
 [replacements]
 # Transcript fix-ups, applied case-insensitively.
 "hub spot" = "HubSpot"
-# "hub spot" = "HubSpot"
-# "git hub" = "GitHub"
+"git hub" = "GitHub"
 
 [snippets]
 # Say exactly the trigger phrase and the expansion is typed instead.

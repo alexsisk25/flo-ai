@@ -12,6 +12,7 @@ import time
 
 import numpy as np
 
+import stt
 import store
 
 SAMPLE_RATE = 16_000
@@ -42,41 +43,13 @@ def _normalize(text: str) -> str:
     return re.sub(r"[^\w\s]", "", text).strip().lower()
 
 
-# --------------------------------------------------------------- whisper
-# faster-whisper (CTranslate2, CPU) replaces mlx-whisper so Walnut runs on
-# Intel Macs too. Legacy MLX repo names in an existing walnut.db still work.
-
-_MODEL_ALIASES = {
-    "mlx-community/whisper-large-v3-turbo": "large-v3-turbo",
-    "mlx-community/whisper-small-mlx": "small",
-    "mlx-community/whisper-base-mlx": "base",
-}
-_whisper_cache: dict = {"name": None, "model": None}
-
-
-def _whisper_model(name: str):
-    # libiomp5 (ctranslate2's OpenMP) segfaults intermittently on Intel Macs
-    # when left unconstrained — see SYSTRAN/faster-whisper#137. Cap threads.
-    import os
-    os.environ.setdefault("OMP_NUM_THREADS", "4")
-    os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
-    from faster_whisper import WhisperModel
-
-    name = _MODEL_ALIASES.get(name, name)
-    if _whisper_cache["name"] != name:
-        _whisper_cache["model"] = WhisperModel(name, device="cpu",
-                                               compute_type="int8",
-                                               cpu_threads=4)
-        _whisper_cache["name"] = name
-    return _whisper_cache["model"]
-
-
 def transcribe(audio: np.ndarray, model: str,
                language: str | None = None,
                initial_prompt: str | None = None) -> str:
-    segments, _ = _whisper_model(model).transcribe(
-        audio, language=language or None, initial_prompt=initial_prompt)
-    return "".join(s.text for s in segments).strip()
+    """Transcribe with whichever engine suits this Mac (see stt.py)."""
+    return stt.transcribe(audio, model, language=language,
+                          initial_prompt=initial_prompt,
+                          backend=store.get("stt_backend"))
 
 
 class Vocabulary:
@@ -108,21 +81,46 @@ class Core:
 
         self.kb = keyboard.Controller()
         self.say_proc: subprocess.Popen | None = None
+        self.play_proc: subprocess.Popen | None = None
         self.stream = None
         self.frames: list[np.ndarray] = []
         self.lock = threading.Lock()
         self.on_state = lambda state: None  # 'idle' | 'recording' | 'busy'
         self.on_level = lambda rms: None    # mic level while recording
 
-    # ------------------------------------------------------------ narration
+    # ------------------------------------------------------------ audio out
+    # Two ways Walnut makes noise: `say` (narration) and `afplay` (replaying a
+    # dictation recording). Both are held so the dashboard can stop them.
 
     def speaking(self) -> bool:
         return self.say_proc is not None and self.say_proc.poll() is None
+
+    def playing(self) -> bool:
+        return self.play_proc is not None and self.play_proc.poll() is None
+
+    def busy_audio(self) -> bool:
+        return self.speaking() or self.playing()
 
     def stop_speech(self) -> None:
         if self.speaking():
             self.say_proc.terminate()
         self.say_proc = None
+
+    def stop_playback(self) -> None:
+        if self.playing():
+            self.play_proc.terminate()
+        self.play_proc = None
+
+    def stop_all(self) -> None:
+        self.stop_speech()
+        self.stop_playback()
+
+    def play_file(self, path: str) -> None:
+        """Replay a recorded dictation, keeping the handle so it can be cut."""
+        self.stop_all()
+        self.play_proc = subprocess.Popen(
+            ["afplay", path], stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL)
 
     def _copy_selection(self) -> str:
         from pynput.keyboard import Key
@@ -139,7 +137,7 @@ class Core:
         return selection
 
     def speak(self, text: str, record_history: bool = True) -> None:
-        self.stop_speech()
+        self.stop_all()
         rate = int(float(store.get("tts_rate")))
         voice = store.get("tts_voice")
         cmd = ["say", "-r", str(rate)] + (["-v", voice] if voice else [])
@@ -170,8 +168,10 @@ class Core:
         return self.stream is not None
 
     def warm_up(self) -> None:
-        model = store.get("stt_model")
-        log(f"Loading speech model {model}…")
+        info = stt.describe(store.get("stt_backend"))
+        model = stt.canonical(store.get("stt_model"))
+        log(f"{info['chip']} detected → {info['backend']} on {info['accelerator']}")
+        log(f"Loading speech model {model}… (first run downloads it)")
         transcribe(np.zeros(SAMPLE_RATE, dtype=np.float32), model)
         log("Speech model ready.")
 
@@ -185,7 +185,7 @@ class Core:
     def _start_recording(self) -> None:
         import sounddevice as sd
 
-        self.stop_speech()
+        self.stop_all()
         self.frames = []
 
         def on_audio(indata, *_):

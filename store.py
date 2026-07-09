@@ -6,6 +6,8 @@ import tomllib
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
+import stt as stt_backend
+
 HERE = Path(__file__).resolve().parent
 DB_PATH = HERE / "walnut.db"
 RECORDINGS = HERE / "recordings"
@@ -13,7 +15,10 @@ RECORDINGS = HERE / "recordings"
 DEFAULTS = {
     "tts_voice": "",
     "tts_rate": "210",
-    "stt_model": "large-v3-turbo",
+    # Picked for the Mac this is running on: the big model where the GPU makes
+    # it cheap, a small one where transcription lands on the CPU.
+    "stt_model": stt_backend.default_model(),
+    "stt_backend": "auto",   # 'auto' | 'mlx' | 'faster-whisper'
     "stt_language": "en",
     "typing_wpm": "60",
     "hotkey_speak": "<ctrl>+<alt>+s",
@@ -66,19 +71,24 @@ def _seed_from_config() -> None:
         with open(cfg_path, "rb") as f:
             cfg = tomllib.load(f)
     settings = dict(DEFAULTS)
-    tts, stt, hot = cfg.get("tts", {}), cfg.get("stt", {}), cfg.get("hotkeys", {})
-    if tts.get("voice") is not None:
-        settings["tts_voice"] = str(tts.get("voice", ""))
-    if tts.get("rate"):
-        settings["tts_rate"] = str(tts["rate"])
-    if stt.get("model"):
-        settings["stt_model"] = stt["model"]
-    if stt.get("language"):
-        settings["stt_language"] = stt["language"]
-    if hot.get("speak"):
-        settings["hotkey_speak"] = hot["speak"]
-    if hot.get("dictate"):
-        settings["hotkey_dictate"] = hot["dictate"]
+    # NB: locals are suffixed to avoid shadowing the `stt` speech module.
+    tts_c, stt_c, hot_c = (cfg.get("tts", {}), cfg.get("stt", {}),
+                           cfg.get("hotkeys", {}))
+    if tts_c.get("voice") is not None:
+        settings["tts_voice"] = str(tts_c.get("voice", ""))
+    if tts_c.get("rate"):
+        settings["tts_rate"] = str(tts_c["rate"])
+    # An empty model in config.toml means "let Walnut choose for this Mac".
+    if stt_c.get("model"):
+        settings["stt_model"] = stt_backend.canonical(stt_c["model"])
+    if stt_c.get("backend"):
+        settings["stt_backend"] = stt_c["backend"]
+    if stt_c.get("language"):
+        settings["stt_language"] = stt_c["language"]
+    if hot_c.get("speak"):
+        settings["hotkey_speak"] = hot_c["speak"]
+    if hot_c.get("dictate"):
+        settings["hotkey_dictate"] = hot_c["dictate"]
     with _conn() as c:
         c.executemany("INSERT OR REPLACE INTO settings VALUES (?,?)",
                       settings.items())

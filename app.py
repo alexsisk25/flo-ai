@@ -72,7 +72,7 @@ class WalnutApp(rumps.App):
         threading.Thread(target=self.core.toggle_speak, daemon=True).start()
 
     def menu_stop(self, _):
-        self.core.stop_speech()
+        self.core.stop_all()   # narration and replayed recordings alike
 
 
 def pretty(hotkey: str) -> str:
