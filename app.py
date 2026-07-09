@@ -29,7 +29,14 @@ class WalnutApp(rumps.App):
         self.hotkeys = core.HotkeyManager(self.core)
         server.CORE = self.core
         server.HOTKEYS = self.hotkeys
-        self.port = int(store.get("port"))
+        self.port = int(store.get_valid("port"))
+
+        # Two Walnuts fight over the port AND the hotkeys, and the loser's
+        # symptoms are baffling. Refuse to be the second one.
+        if server.port_in_use(self.port):
+            core.log(f"Walnut is already running at http://127.0.0.1:{self.port}")
+            webbrowser.open(f"http://127.0.0.1:{self.port}")
+            raise SystemExit(0)
 
         speak = store.get("hotkey_speak")
         dictate = store.get("hotkey_dictate")
@@ -44,12 +51,25 @@ class WalnutApp(rumps.App):
             None,
         ]
 
-        threading.Thread(target=self.core.warm_up, daemon=True).start()
-        threading.Thread(target=server.run, args=(self.port,),
+        threading.Thread(target=self._guarded, args=(self.core.warm_up,),
                          daemon=True).start()
-        self.hotkeys.start()
+        threading.Thread(target=self._guarded, args=(server.run, self.port),
+                         daemon=True).start()
+        self.hotkeys.start()   # never raises; falls back to defaults
         core.log(f"Walnut menu bar app running — dashboard at "
                  f"http://127.0.0.1:{self.port}")
+
+    @staticmethod
+    def _guarded(fn, *args) -> None:
+        """Run a background task so its failure is logged, not swallowed.
+
+        A daemon thread that raises just disappears; the model would fail to
+        load or the dashboard would never bind and Walnut looked fine.
+        """
+        try:
+            fn(*args)
+        except Exception as e:
+            core.log(f"{fn.__name__} failed: {type(e).__name__}: {e}")
 
     def set_state(self, state: str) -> None:
         try:

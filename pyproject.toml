@@ -16,6 +16,9 @@ dependencies = [
     "mlx-whisper>=0.4.3; sys_platform == 'darwin' and platform_machine == 'arm64'",
 ]
 
+[dependency-groups]
+dev = ["pytest>=8.0"]
+
 [tool.uv]
 # Lock for BOTH Macs, so one uv.lock serves an Intel clone and an M-series
 # clone. Without this, resolving on arm64 would omit the x86_64 wheels

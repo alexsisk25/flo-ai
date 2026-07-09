@@ -108,11 +108,17 @@ you want to force `faster-whisper` on Apple Silicon — useful for comparing.
 ## Troubleshooting
 
 ```sh
-uv run walnut.py --doctor   # what chip, engine, and model did Walnut find?
-uv run walnut.py --test     # end-to-end check, no mic needed. Two PASS lines.
+uv run walnut.py --doctor        # what chip, engine, and model did Walnut find?
+uv run walnut.py --test          # end-to-end check, no mic needed. Two PASS lines.
+uv run --group dev pytest -q     # the regression suite
 ```
 
 `--test` runs against a *copy* of your database, so it never touches your data.
+
+Every test in `tests/` is a bug Walnut actually shipped — a fix-up containing a
+backslash that killed all dictation, a hotkey that crash-looped the app, leaked
+database handles. If you change something and one fails, it is telling you the
+truth.
 
 Hotkeys silently doing nothing is almost always Accessibility permission not
 granted, or granted to the wrong binary (your terminal when you run Walnut by

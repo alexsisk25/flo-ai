@@ -20,6 +20,44 @@ logging.getLogger("werkzeug").setLevel(logging.ERROR)
 CORE = None
 HOTKEYS = None
 
+# Walnut binds 127.0.0.1, but a page in your browser can still POST to it, and
+# DNS rebinding can make an attacker's domain resolve there. Both are defeated
+# by refusing any request whose Host isn't loopback.
+_ALLOWED_HOSTS = {"127.0.0.1", "localhost", "[::1]", "::1"}
+
+
+@app.before_request
+def _guard_host():
+    host = (request.host or "").rsplit(":", 1)[0]
+    if host not in _ALLOWED_HOSTS:
+        return jsonify({"error": "forbidden host"}), 403
+    origin = request.headers.get("Origin")
+    if origin and not origin.startswith(("http://127.0.0.1", "http://localhost")):
+        return jsonify({"error": "forbidden origin"}), 403
+
+
+@app.errorhandler(ValueError)
+def _bad_input(e):
+    """A rejected value is the caller's fault, not a server fault."""
+    return jsonify({"error": str(e)}), 400
+
+
+@app.errorhandler(Exception)
+def _unhandled(e):
+    from werkzeug.exceptions import HTTPException
+    if isinstance(e, HTTPException):
+        return e
+    app.logger.exception("unhandled error")
+    return jsonify({"error": "internal error"}), 500
+
+
+def _int_arg(name: str, default: int) -> int:
+    raw = request.args.get(name, default)
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        raise ValueError(f"{name} must be an integer, got {raw!r}")
+
 
 @app.route("/")
 def index():
@@ -88,8 +126,12 @@ def snippet_item(sid):
         store.snippets_delete(sid)
     else:
         d = request.json or {}
-        store.snippets_update(sid, d["trigger"], d["expansion"],
-                              int(d.get("enabled", 1)))
+        trigger = str(d.get("trigger", "")).strip()
+        expansion = str(d.get("expansion", ""))
+        if not trigger or not expansion:
+            raise ValueError("trigger and expansion are required")
+        store.snippets_update(sid, trigger, expansion,
+                              1 if d.get("enabled", 1) else 0)
     return jsonify({"ok": True})
 
 
@@ -107,7 +149,7 @@ def history():
     return jsonify(store.history_list(
         q=request.args.get("q", ""),
         kind=request.args.get("type", ""),
-        limit=int(request.args.get("limit", 200)),
+        limit=_int_arg("limit", 200),   # `?limit=abc` used to be a 500
     ))
 
 
@@ -166,17 +208,29 @@ def history_reveal(hid):
 def settings():
     if request.method == "PUT":
         d = request.json or {}
-        hotkeys_changed = False
+
+        # Validate the whole payload before writing any of it. Previously a bad
+        # value was persisted and only then interpreted: an unparseable hotkey
+        # left the listener dead and crash-looped Walnut on the next launch.
+        clean, hotkeys_changed = {}, False
         for key in store.DEFAULTS:
             if key in d:
-                value = str(d[key])
-                if key == "stt_model":
-                    value = stt.canonical(value)  # never store an unknown id
-                if key.startswith("hotkey_") and value != store.get(key):
+                clean[key] = store.validate_setting(key, d[key])  # raises -> 400
+                if key.startswith("hotkey_") and clean[key] != store.get(key):
                     hotkeys_changed = True
-                store.set_setting(key, value)
+
+        previous = {k: store.get(k) for k in clean}
+        for key, value in clean.items():
+            store.set_setting(key, value)
+
         if hotkeys_changed and HOTKEYS:
-            HOTKEYS.reload()
+            try:
+                HOTKEYS.reload()
+            except Exception as e:
+                for key, value in previous.items():   # put it all back
+                    store.set_setting(key, value)
+                HOTKEYS.reload()
+                raise ValueError(f"could not bind those hotkeys: {e}")
     return jsonify(store.all_settings())
 
 
@@ -212,5 +266,18 @@ def test_voice():
     return jsonify({"ok": True})
 
 
+def port_in_use(port: int) -> bool:
+    """True if something already listens on 127.0.0.1:port."""
+    import socket
+    with socket.socket() as s:
+        return s.connect_ex(("127.0.0.1", port)) == 0
+
+
 def run(port: int) -> None:
-    app.run(host="127.0.0.1", port=port, threaded=True, use_reloader=False)
+    # werkzeug calls sys.exit() when the port is taken. In a daemon thread that
+    # kills the thread and nothing else, so the dashboard would vanish without
+    # a word. Surface it instead.
+    try:
+        app.run(host="127.0.0.1", port=port, threaded=True, use_reloader=False)
+    except SystemExit:
+        raise RuntimeError(f"port {port} is already in use")

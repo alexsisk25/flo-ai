@@ -576,8 +576,30 @@ svg.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;strok
 
 <script>
 const $ = s => document.querySelector(s);
-const api = (url, opts) => fetch(url, opts ? {headers:{'Content-Type':'application/json'}, ...opts} : undefined).then(r => r.json());
-const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* One request helper for the whole page. Every failure mode lands here rather
+   than in an unhandled rejection: a dead server, an HTML error page from a 500,
+   an empty body, or a 400 carrying {"error": "..."}. Callers that want to react
+   to a failure catch it; the rest simply never see a half-rendered page. */
+async function api(url, opts){
+  let res;
+  try {
+    res = await fetch(url, opts ? {headers:{'Content-Type':'application/json'}, ...opts} : undefined);
+  } catch (e) {
+    toast('Walnut isn\'t responding — is it still running?');
+    throw e;
+  }
+  const body = await res.text();
+  let data = null;
+  if (body) { try { data = JSON.parse(body); } catch { /* not JSON */ } }
+  if (!res.ok) {
+    const msg = (data && data.error) || `${res.status} ${res.statusText}`;
+    toast(msg);
+    throw new Error(msg);
+  }
+  return data;
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmtDur = s => { s = Math.round(s); if (s < 60) return s + 's';
   const m = Math.floor(s/60); if (m < 60) return `${m}m ${s%60}s`;
   return `${Math.floor(m/60)}h ${m%60}m`; };
@@ -613,10 +635,13 @@ function sparkline(svg, data){
   el.innerHTML = `<polygon points="${area}" fill="var(--amber)" fill-opacity=".12"/>
     <polyline points="${line}" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linejoin="round"/>`;
 }
+let DASH_SEQ = 0;
 async function loadDashboard(){
   $('#greeting').textContent = greeting();
   if (localStorage.getItem('guideDismissed') && $('#guide')) $('#guide').remove();
-  const d = await api('/api/dashboard?period=' + $('#period').value);
+  const seq = ++DASH_SEQ;
+  const d = await api('/api/dashboard?period=' + encodeURIComponent($('#period').value));
+  if (seq !== DASH_SEQ) return;   // a newer period/refresh already answered
   $('#streak').textContent = d.streak + (d.streak === 1 ? ' day' : ' days');
   $('#speakwpm').textContent = d.speaking_wpm + ' WPM';
   $('#typewpm').textContent = d.typing_wpm + ' WPM';
@@ -691,7 +716,7 @@ function renderSnippets(){
     <div class="list-row">
       <div class="spread">
         <span style="min-width:0"><span class="trigger">${esc(s.trigger)}</span>
-          <span class="arrow">→</span><span class="${s.enabled?'':'dim'}">${esc(s.expansion.split('\n')[0]).slice(0,90)}</span></span>
+          <span class="arrow">→</span><span class="${s.enabled?'':'dim'}">${esc(s.expansion.split('\n')[0].slice(0,90))}</span></span>
         <span class="row">
           <span class="dim" style="font-size:12px">${s.uses}× used</span>
           <button class="ghost" style="padding:4px 10px;font-size:11px" onclick="toggleOne(${s.id})">${s.enabled?'Disable':'Enable'}</button>
@@ -712,6 +737,7 @@ async function saveNewSnippet(){
 async function delSnippet(id){ await api('/api/snippets/'+id, {method:'DELETE'}); loadSnippets(); }
 async function toggleOne(id){
   const s = SNIPS.find(x => x.id === id);
+  if (!s) return loadSnippets();   // list went stale under us
   await api('/api/snippets/'+id, {method:'PUT',
     body: JSON.stringify({trigger: s.trigger, expansion: s.expansion, enabled: s.enabled ? 0 : 1})});
   loadSnippets();
@@ -730,9 +756,15 @@ $('#hist-tabs').addEventListener('click', e => {
   HIST_KIND = e.target.dataset.kind;
   loadHistory();
 });
+/* Every keystroke fires a request. Responses can land out of order, so stamp
+   each one and ignore any result that isn't the newest — otherwise the slow
+   reply for "a" overwrites the correct results for "ab". */
+let HIST_SEQ = 0;
 async function loadHistory(){
+  const seq = ++HIST_SEQ;
   const q = encodeURIComponent($('#hist-search').value.trim());
   const rows = await api(`/api/history?q=${q}&type=${HIST_KIND}`);
+  if (seq !== HIST_SEQ) return;   // a newer search already answered
   $('#hist-count').textContent = `Showing ${rows.length} entr${rows.length===1?'y':'ies'}`;
   $('#hist-list').innerHTML = rows.map(r => {
     const dt = new Date(r.ts*1000).toLocaleString([], {month:'short', day:'numeric',
@@ -750,7 +782,7 @@ async function loadHistory(){
           ${r.snippet ? '<span class="pill">snippet</span>' : ''}
         </div>
         <div class="spread" style="margin-top:10px">
-          <span class="dim" style="font-size:11px;letter-spacing:1px">${r.type.toUpperCase()}</span>
+          <span class="dim" style="font-size:11px;letter-spacing:1px">${esc(r.type).toUpperCase()}</span>
           <button style="padding:5px 10px;font-size:11px" onclick="copyText(${r.id}, this)">⧉ Copy</button>
         </div>
         <div class="transcript">${esc(r.text)}</div>
@@ -770,7 +802,7 @@ async function loadHistory(){
    noise, so at most one card is ever audible — hence a single PLAYING_ID
    rather than per-card state. While something plays we poll the server so the
    button reverts on its own when the clip simply ends. */
-let PLAYING_ID = null, PLAY_POLL = null;
+let PLAYING_ID = null, PLAY_POLL = null, PLAY_DELAY = null;
 
 function paintReplayButtons(){
   document.querySelectorAll('[id^="replay-"]').forEach(b => {
@@ -779,30 +811,54 @@ function paintReplayButtons(){
     b.classList.toggle('active', id === PLAYING_ID);
   });
 }
-function stopPolling(){ clearInterval(PLAY_POLL); PLAY_POLL = null; }
+/* Both timers must be cancellable. Clearing only the interval left the pending
+   start-up timeout alive: two Replay clicks inside 800ms produced two intervals
+   while PLAY_POLL held just the second handle, so the first polled /api/speech/
+   status every 500ms for the life of the page. */
+function stopPolling(){
+  clearTimeout(PLAY_DELAY); PLAY_DELAY = null;
+  clearInterval(PLAY_POLL); PLAY_POLL = null;
+}
 function startPolling(){
   stopPolling();
   // speak() runs on a worker thread, so `say` may not have spawned yet.
   // Wait before the first poll or we'd read "not playing" and reset at once.
-  setTimeout(() => {
+  PLAY_DELAY = setTimeout(() => {
+    PLAY_DELAY = null;
     PLAY_POLL = setInterval(async () => {
-      const { playing } = await api('/api/speech/status');
+      let playing;
+      try { ({ playing } = await api('/api/speech/status')); }
+      catch { playing = false; }          // server gone: don't strand "Stop"
       if (!playing){ PLAYING_ID = null; stopPolling(); paintReplayButtons(); }
     }, 500);
   }, 800);
 }
 async function stopReplay(){
   stopPolling();
-  await api('/api/speech/stop', {method:'POST'});
-  PLAYING_ID = null; paintReplayButtons();
+  PLAYING_ID = null; paintReplayButtons();   // optimistic: the click is the truth
+  try { await api('/api/speech/stop', {method:'POST'}); } catch {}
 }
 async function toggleReplay(id){
   if (PLAYING_ID === id) return stopReplay();
-  await api(`/api/history/${id}/replay`, {method:'POST'});
+  stopPolling();                     // cancel any poller aimed at the old card
+  try {
+    await api(`/api/history/${id}/replay`, {method:'POST'});
+  } catch { return; }                // failed to start: leave every button at Replay
   PLAYING_ID = id; paintReplayButtons(); startPolling();
 }
 async function copyText(id, btn){
-  await navigator.clipboard.writeText(window.HIST_ROWS[id]);
+  // navigator.clipboard is undefined outside a secure context, and rejects if
+  // the document isn't focused. Fall back rather than fail silently.
+  const text = window.HIST_ROWS[id] ?? '';
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch { toast('Could not copy'); return; }
+    finally { ta.remove(); }
+  }
   btn.textContent = '✓ Copied'; setTimeout(() => btn.textContent = '⧉ Copy', 1200);
 }
 async function delHistory(id){ await api('/api/history/'+id, {method:'DELETE'}); loadHistory(); }
@@ -905,7 +961,7 @@ function renderModels(sys, chosen){
     if (m.recommended) tags.push('recommended here');
     if (m.slow_here) tags.push('slow on this Mac');
     if (m.english_only) tags.push('English only');
-    return `<option value="${m.id}">${esc(m.label)} — ${tags.join(', ')}</option>`;
+    return `<option value="${esc(m.id)}">${esc(m.label)} — ${esc(tags.join(', '))}</option>`;
   }).join('');
   $('#set-model').value = chosen;
   paintModelNote(sys);
@@ -920,7 +976,7 @@ async function loadSettings(){
   window.TYPING_WPM = +s.typing_wpm;
   window.SYS = sys;
   $('#set-voice').innerHTML = '<option value="">System default</option>' +
-    voices.map(v => `<option value="${esc(v.name)}">${esc(v.name)} (${v.locale})</option>`).join('');
+    voices.map(v => `<option value="${esc(v.name)}">${esc(v.name)} (${esc(v.locale)})</option>`).join('');
   $('#set-voice').value = s.tts_voice || '';
   $('#set-rate').value = s.tts_rate; $('#rate-label').textContent = s.tts_rate;
   renderModels(sys, s.stt_model);
@@ -949,8 +1005,12 @@ async function testVoice(){
   api('/api/test-voice', {method:'POST', body: JSON.stringify({})});
 }
 
-/* boot */
-api('/api/settings').then(s => { window.TYPING_WPM = +s.typing_wpm; route(); });
+/* boot — route() must run even if the first request fails, or the page is
+   stuck on raw markup with no nav and no explanation. */
+api('/api/settings')
+  .then(s => { window.TYPING_WPM = +s.typing_wpm; })
+  .catch(() => { window.TYPING_WPM = 60; })
+  .finally(route);
 </script>
 </body>
 </html>

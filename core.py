@@ -70,8 +70,15 @@ class Vocabulary:
                     store.snippets_hit(s["id"])
                     return s["expansion"], True
         for r in store.replacements_list():
-            text = re.sub(re.escape(r["wrong"]), r["right"], text,
-                          flags=re.IGNORECASE)
+            # The replacement is a literal, not a template. Passing it straight
+            # to re.sub() made "\1" or "\t" in a fix-up raise re.PatternError —
+            # and because this runs in a worker thread, one bad rule silently
+            # killed every transcription. A function replacement never expands.
+            try:
+                text = re.sub(re.escape(r["wrong"]), lambda _m, v=r["right"]: v,
+                              text, flags=re.IGNORECASE)
+            except re.error as e:                     # malformed `wrong` pattern
+                log(f"skipping bad fix-up {r['wrong']!r}: {e}")
         return text, False
 
 
@@ -126,25 +133,33 @@ class Core:
         from pynput.keyboard import Key
 
         saved = get_clipboard()
-        set_clipboard("")
-        time.sleep(0.30)  # let hotkey modifiers be released
-        with self.kb.pressed(Key.cmd):
-            self.kb.press("c")
-            self.kb.release("c")
-        time.sleep(0.30)
-        selection = get_clipboard()
-        set_clipboard(saved)
-        return selection
+        try:
+            set_clipboard("")
+            time.sleep(0.30)  # let hotkey modifiers be released
+            with self.kb.pressed(Key.cmd):
+                self.kb.press("c")
+                self.kb.release("c")
+            time.sleep(0.30)
+            return get_clipboard()
+        finally:
+            set_clipboard(saved)   # restore even if the copy raises
 
     def speak(self, text: str, record_history: bool = True) -> None:
         self.stop_all()
-        rate = int(float(store.get("tts_rate")))
-        voice = store.get("tts_voice")
+        rate = int(store.get_valid("tts_rate"))
+        voice = store.get_valid("tts_voice")
         cmd = ["say", "-r", str(rate)] + (["-v", voice] if voice else [])
-        self.say_proc = subprocess.Popen(cmd + ["-f", "-"],
-                                         stdin=subprocess.PIPE)
-        self.say_proc.stdin.write(text.encode())
-        self.say_proc.stdin.close()
+        try:
+            self.say_proc = subprocess.Popen(cmd + ["-f", "-"],
+                                             stdin=subprocess.PIPE)
+            self.say_proc.stdin.write(text.encode())
+            self.say_proc.stdin.close()
+        except (OSError, ValueError) as e:
+            # a deleted voice, or `say` refusing the text
+            log(f"Narration failed: {e}")
+            play_sound(SOUND_ERROR)
+            self.say_proc = None
+            return
         if record_history:
             est = len(text.split()) / max(rate, 1) * 60
             store.history_add("readback", text, est)
@@ -176,11 +191,19 @@ class Core:
         log("Speech model ready.")
 
     def toggle_dictate(self) -> None:
-        with self.lock:
+        # Non-blocking: transcription can take seconds while holding this lock.
+        # Blocking here meant a hotkey press during transcription queued up and
+        # then started an unexpected recording once the lock freed.
+        if not self.lock.acquire(blocking=False):
+            log("Still working on the last dictation — ignoring.")
+            return
+        try:
             if self.recording():
                 self._stop_and_type()
             else:
                 self._start_recording()
+        finally:
+            self.lock.release()
 
     def _start_recording(self) -> None:
         import sounddevice as sd
@@ -195,18 +218,31 @@ class Core:
             except Exception:
                 pass
 
-        self.stream = sd.InputStream(
-            samplerate=SAMPLE_RATE, channels=1, dtype="float32",
-            callback=on_audio,
-        )
-        self.stream.start()
+        # If opening the mic fails (permission denied, device in use), leave
+        # self.stream as None. Assigning first meant recording() reported True
+        # forever and the next hotkey press tried to stop a dead stream.
+        try:
+            stream = sd.InputStream(
+                samplerate=SAMPLE_RATE, channels=1, dtype="float32",
+                callback=on_audio,
+            )
+            stream.start()
+        except Exception as e:
+            log(f"Could not open the microphone: {e}")
+            play_sound(SOUND_ERROR)
+            self.on_state("idle")
+            return
+        self.stream = stream
         play_sound(SOUND_START)
         self.on_state("recording")
         log("Recording…")
 
     def _stop_and_type(self) -> None:
-        self.stream.stop()
-        self.stream.close()
+        try:
+            self.stream.stop()
+            self.stream.close()
+        except Exception as e:
+            log(f"Error closing the microphone: {e}")
         self.stream = None
         play_sound(SOUND_STOP)
         self.on_state("busy")
@@ -221,12 +257,19 @@ class Core:
                 return
             log(f"Transcribing {secs:.1f}s…")
             t0 = time.time()
-            text = transcribe(
-                audio,
-                store.get("stt_model"),
-                language=store.get("stt_language") or None,
-                initial_prompt=Vocabulary.initial_prompt(),
-            )
+            try:
+                text = transcribe(
+                    audio,
+                    store.get("stt_model"),
+                    language=store.get("stt_language") or None,
+                    initial_prompt=Vocabulary.initial_prompt(),
+                )
+            except Exception as e:
+                # model download failed, disk full, corrupt weights… don't die
+                # silently in a worker thread: chime and say so in the log.
+                log(f"Transcription failed: {type(e).__name__}: {e}")
+                play_sound(SOUND_ERROR)
+                return
             text, used_snippet = Vocabulary.apply(text)
             log(f"({time.time() - t0:.1f}s) → {text!r}")
             if not text:
@@ -242,7 +285,15 @@ class Core:
     def _save_audio(audio: np.ndarray) -> str:
         import soundfile as sf
 
-        path = store.RECORDINGS / f"dictation-{int(time.time())}.wav"
+        # Second resolution collided: two dictations inside the same second
+        # wrote the same file, so one clip overwrote the other and deleting
+        # either history row unlinked the survivor's audio too.
+        stamp = time.strftime("%Y%m%d-%H%M%S")
+        path = store.RECORDINGS / f"dictation-{stamp}.wav"
+        n = 1
+        while path.exists():
+            path = store.RECORDINGS / f"dictation-{stamp}-{n}.wav"
+            n += 1
         sf.write(path, audio, SAMPLE_RATE, subtype="PCM_16")
         return str(path)
 
@@ -250,13 +301,15 @@ class Core:
         from pynput.keyboard import Key
 
         saved = get_clipboard()
-        set_clipboard(text)
-        time.sleep(0.15)
-        with self.kb.pressed(Key.cmd):
-            self.kb.press("v")
-            self.kb.release("v")
-        time.sleep(0.30)
-        set_clipboard(saved)
+        try:
+            set_clipboard(text)
+            time.sleep(0.15)
+            with self.kb.pressed(Key.cmd):
+                self.kb.press("v")
+                self.kb.release("v")
+            time.sleep(0.30)
+        finally:
+            set_clipboard(saved)   # never strand the transcript in the clipboard
 
 
 class HotkeyManager:
@@ -267,11 +320,15 @@ class HotkeyManager:
         self.listener = None
 
     def start(self) -> None:
+        """Bind the hotkeys. Never raises: an unusable combo falls back to the
+        default rather than killing the listener (or, at launch, the process —
+        which launchd would then respawn forever)."""
         from pynput import keyboard
 
         self.stop()
-        speak = store.get("hotkey_speak")
-        dictate = store.get("hotkey_dictate")
+        # get_valid() heals a database holding a combo pynput cannot parse
+        speak = store.get_valid("hotkey_speak")
+        dictate = store.get_valid("hotkey_dictate")
 
         def on_speak():
             threading.Thread(target=self.core.toggle_speak, daemon=True).start()
@@ -279,9 +336,23 @@ class HotkeyManager:
         def on_dictate():
             threading.Thread(target=self.core.toggle_dictate, daemon=True).start()
 
-        self.listener = keyboard.GlobalHotKeys({speak: on_speak,
-                                                dictate: on_dictate})
-        self.listener.start()
+        try:
+            self.listener = keyboard.GlobalHotKeys({speak: on_speak,
+                                                    dictate: on_dictate})
+            self.listener.start()
+        except Exception as e:
+            # e.g. the two combos collide, or macOS refuses the tap
+            self.listener = None
+            log(f"Could not bind hotkeys ({speak}, {dictate}): {e}")
+            if (speak, dictate) == (store.DEFAULTS["hotkey_speak"],
+                                    store.DEFAULTS["hotkey_dictate"]):
+                log("Defaults failed too — check Accessibility permission.")
+                return
+            log("Falling back to the default hotkeys.")
+            store.set_setting("hotkey_speak", store.DEFAULTS["hotkey_speak"])
+            store.set_setting("hotkey_dictate", store.DEFAULTS["hotkey_dictate"])
+            self.start()
+            return
         log(f"Hotkeys active: {speak} (narrate), {dictate} (dictate)")
 
     def stop(self) -> None:

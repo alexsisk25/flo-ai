@@ -1,5 +1,7 @@
 """SQLite storage for Walnut: settings, dictionary, snippets, history, stats."""
 
+import contextlib
+import re
 import sqlite3
 import time
 import tomllib
@@ -45,18 +47,37 @@ CREATE TABLE IF NOT EXISTS history (
     duration REAL NOT NULL,         -- seconds
     snippet INTEGER DEFAULT 0,      -- 1 if a snippet expanded
     audio_path TEXT);
+-- every history query orders or filters on ts
+CREATE INDEX IF NOT EXISTS idx_history_ts ON history(ts);
+CREATE INDEX IF NOT EXISTS idx_history_type_ts ON history(type, ts);
 """
 
 
-def _conn() -> sqlite3.Connection:
-    c = sqlite3.connect(DB_PATH)
+@contextlib.contextmanager
+def _conn():
+    """A connection that is always committed-or-rolled-back, and always closed.
+
+    The previous version returned a bare Connection used as `with _conn() as c`.
+    sqlite3's context manager commits the transaction but does NOT close the
+    connection, so every call leaked a file descriptor until the GC happened to
+    collect it — a few hundred dashboard polls could exhaust the fd limit.
+    """
+    c = sqlite3.connect(DB_PATH, timeout=10.0)
     c.row_factory = sqlite3.Row
-    return c
+    try:
+        with c:
+            yield c
+    finally:
+        c.close()
 
 
 def init() -> None:
     RECORDINGS.mkdir(exist_ok=True)
     with _conn() as c:
+        # WAL lets the Flask threads read while the dictation thread writes,
+        # instead of serialising on a whole-database lock. Persists on the file.
+        c.execute("PRAGMA journal_mode=WAL")
+        c.execute("PRAGMA synchronous=NORMAL")
         c.executescript(SCHEMA)
         fresh = c.execute("SELECT COUNT(*) FROM settings").fetchone()[0] == 0
     if fresh:
@@ -103,11 +124,89 @@ def _seed_from_config() -> None:
 
 
 # ---------------------------------------------------------------- settings
+#
+# Everything here is reachable from the dashboard, so a bad value must be
+# rejected at the door. It used to be written first and interpreted later: a
+# non-numeric tts_rate crashed narration, and an unparseable hotkey killed the
+# listener and then crash-looped the app at next launch (KeepAlive respawns it).
+
+def _int_in(lo: int, hi: int):
+    def check(v: str) -> str:
+        n = int(float(v))         # accept "210" and "210.0"
+        if not lo <= n <= hi:
+            raise ValueError(f"must be between {lo} and {hi}")
+        return str(n)
+    return check
+
+
+def _one_of(*allowed: str):
+    def check(v: str) -> str:
+        if v not in allowed:
+            raise ValueError(f"must be one of {', '.join(allowed)}")
+        return v
+    return check
+
+
+def _language(v: str) -> str:
+    v = v.strip().lower()
+    if v and not re.fullmatch(r"[a-z]{2,3}", v):
+        raise ValueError("must be a language code like 'en', or blank for auto")
+    return v
+
+
+def _hotkey(v: str) -> str:
+    from pynput.keyboard import HotKey   # lazy: store is imported by --doctor
+    HotKey.parse(v)                      # raises ValueError on anything invalid
+    return v
+
+
+def _voice(v: str) -> str:
+    if len(v) > 100:
+        raise ValueError("voice name too long")
+    return v
+
+
+VALIDATORS = {
+    "tts_rate": _int_in(80, 500),
+    "typing_wpm": _int_in(5, 300),
+    "port": _int_in(1024, 65535),
+    "stt_model": lambda v: stt_backend.canonical(v),
+    "stt_backend": _one_of("auto", stt_backend.MLX, stt_backend.FASTER),
+    "stt_language": _language,
+    "snippets_enabled": _one_of("0", "1"),
+    "hotkey_speak": _hotkey,
+    "hotkey_dictate": _hotkey,
+    "tts_voice": _voice,
+}
+
+
+def validate_setting(key: str, value) -> str:
+    """Normalise a setting, or raise ValueError. Unknown keys are rejected."""
+    if key not in DEFAULTS:
+        raise ValueError(f"unknown setting {key!r}")
+    return VALIDATORS[key](str(value))
+
 
 def get(key: str) -> str:
     with _conn() as c:
         row = c.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
     return row["value"] if row else DEFAULTS.get(key, "")
+
+
+def get_valid(key: str) -> str:
+    """get(), but a corrupt/legacy stored value falls back to the default.
+
+    Read paths that would otherwise crash the app use this: a database carried
+    over from an older Walnut (or hand-edited) must never take the process down.
+    """
+    raw = get(key)
+    try:
+        return validate_setting(key, raw)
+    except Exception:
+        default = DEFAULTS.get(key, "")
+        print(f"[store] ignoring invalid {key}={raw!r}; using {default!r}",
+              flush=True)
+        return default
 
 
 def set_setting(key: str, value: str) -> None:
@@ -199,9 +298,12 @@ def history_add(kind: str, text: str, duration: float,
 
 
 def history_list(q: str = "", kind: str = "", limit: int = 200) -> list[dict]:
+    limit = max(1, min(int(limit), 1000))   # never let a caller ask for it all
     sql, args = "SELECT * FROM history WHERE 1=1", []
     if q:
-        sql += " AND text LIKE ?"
+        # escape LIKE wildcards so searching for "100%" isn't a match-anything
+        q = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        sql += " AND text LIKE ? ESCAPE '\\'"
         args.append(f"%{q}%")
     if kind in ("dictation", "readback"):
         sql += " AND type=?"
@@ -235,10 +337,15 @@ def _day(ts: float) -> date:
 def stats(period: str = "week") -> dict:
     days = {"week": 7, "month": 30, "all": 3650}[period]
     cutoff = time.time() - days * 86400
-    typing_wpm = max(1, int(float(get("typing_wpm"))))
+    typing_wpm = max(1, int(float(get_valid("typing_wpm"))))
 
     with _conn() as c:
-        rows = [dict(r) for r in c.execute("SELECT * FROM history ORDER BY ts")]
+        # Only the columns the maths needs. This used to `SELECT *`, dragging
+        # every transcript ever recorded into memory on each dashboard poll;
+        # `keystrokes` needs the text length, not the text.
+        rows = [dict(r) for r in c.execute(
+            "SELECT type, ts, words, duration, LENGTH(text) AS chars"
+            " FROM history ORDER BY ts")]
         snippet_uses = c.execute(
             "SELECT COALESCE(SUM(uses),0) FROM snippets").fetchone()[0]
 
@@ -248,7 +355,7 @@ def stats(period: str = "week") -> dict:
 
     words_dictated = sum(r["words"] for r in dic)
     speak_secs = sum(r["duration"] for r in dic)
-    keystrokes = sum(len(r["text"]) for r in dic)
+    keystrokes = sum(r["chars"] for r in dic)
     focus_secs = sum(r["duration"] for r in cur)
     # time saved = what typing those words would have cost, minus speaking time
     saved = max(0.0, words_dictated / typing_wpm * 60 - speak_secs)
