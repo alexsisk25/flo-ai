@@ -47,6 +47,30 @@ def open_accessibility_settings() -> None:
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
+def request_microphone() -> None:
+    """Ask macOS for Microphone permission via AVFoundation.
+
+    PortAudio/sounddevice never triggers the TCC prompt on its own — it just
+    returns silence if the permission hasn't been granted. Calling this at
+    startup ensures the system dialog appears on first launch and that
+    Walnut.app shows up in Privacy & Security → Microphone.
+
+    Uses objc.loadBundle (pyobjc-core, already a dependency) to load
+    AVFoundation directly — no extra package needed.
+    """
+    try:
+        import AVFoundation
+        status = AVFoundation.AVCaptureDevice.authorizationStatusForMediaType_(
+            AVFoundation.AVMediaTypeAudio
+        )
+        if status == 0:  # AVAuthorizationStatusNotDetermined
+            AVFoundation.AVCaptureDevice.requestAccessForMediaType_completionHandler_(
+                AVFoundation.AVMediaTypeAudio, lambda granted: None
+            )
+    except Exception:
+        pass
+
+
 def summary() -> dict:
     """What the dashboard and --doctor report."""
     ok = accessibility_trusted()

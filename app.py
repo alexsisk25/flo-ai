@@ -55,6 +55,7 @@ class WalnutApp(rumps.App):
     def __init__(self):
         super().__init__("Walnut", icon=ICON_IDLE, template=True,
                          quit_button="Quit Walnut")
+        permissions.request_microphone()   # triggers TCC prompt for mic on first run
         store.init()
         # Apply the cap to whatever accumulated while an older build ran.
         pruned = store.prune_recordings()
