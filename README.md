@@ -90,14 +90,15 @@ Walnut stores one canonical model name and translates it per engine, so the same
 > has never actually been run on Intel silicon. If that's you, you're the first
 > — please open an issue with whatever breaks. Everything else here is tested.
 
-## The two hotkeys
+## The hotkeys
 
 | Hotkey | What happens |
 |:--|:--|
 | `⌃⌥D` | Chime. Speak. Chime. Your words are typed into the frontmost app. |
 | `⌃⌥S` | Whatever text you have selected, anywhere, is read aloud. Press again to stop. |
+| `⌃⌥C` | Chime. Speak. Chime. The phrase goes to the MegaMind Console instead of being typed (see Voice commands below). |
 
-Both are re-bindable on the **Shortcuts** page — live, no restart. Dictation is
+All are re-bindable on the **Shortcuts** page — live, no restart. Dictation is
 `⌃⌥D` rather than `⌃⌥Space` because macOS uses that to switch input sources.
 
 ## Make the narration sound human
@@ -128,6 +129,29 @@ by any app; Premium is the ceiling. Walnut deliberately ships no bundled neural
 TTS: every open phonemiser in reach (`espeak-ng`, `phonemizer-fork`, and so
 `piper-tts` and `kokoro-onnx`) is GPL-3, which would silently relicense this
 MIT project.
+
+## Voice commands (MegaMind Console)
+
+Walnut can trigger headless skill runs on the MegaMind Console
+(`Claude_Cowork/Projects/console`, must be running — `npm start` there, or
+its launchd agent). Trigger + confirm only; no conversations.
+
+End-to-end demo: press `⌃⌥C`, say **"vet this https://github.com/x/y"**,
+press `⌃⌥C` again. Walnut sends the raw phrase to the Console's `/api/run`,
+which matches it against the command-center trigger phrases and starts the
+run. Walnut says "Running vet skill.", follows the run's stream, and when it
+finishes speaks the one-line TL;DR of the result.
+
+- **Ambiguous phrase** (matches two triggers, e.g. "email brief"): Walnut
+  speaks the top two candidates and asks you to press the hotkey and say
+  which one. It never guesses.
+- **No match**: Walnut says "This needs a real session" — open a terminal or
+  Cowork for anything conversational.
+- **Console not running**: Walnut tells you so.
+
+Settings live in the store like everything else: `hotkey_command` (default
+`<ctrl>+<alt>+c`) and `console_url` (default `http://127.0.0.1:4173`), both
+changeable via `PUT /api/settings` on the dashboard API.
 
 ## The dashboard
 
@@ -208,6 +232,7 @@ stt.py       engine + model selection         store.py        SQLite: settings, 
 permissions.py  macOS Accessibility           server.py       Flask API
 app.py       menu bar app (rumps)             overlay.py      the floating recording pill
 install.sh   installer                        static/index.html  the dashboard
+console_bridge.py   voice commands → MegaMind Console
 ```
 
 `config.toml` is read once, on first run, to seed the database. After that the

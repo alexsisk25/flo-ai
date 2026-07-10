@@ -30,6 +30,8 @@ DEFAULTS = {
     # NOT ⌃⌥Space: macOS binds that to "Select next source in Input menu" for
     # anyone with two keyboard layouts. Existing databases keep their own value.
     "hotkey_dictate": "<ctrl>+<alt>+d",
+    "hotkey_command": "<ctrl>+<alt>+c",
+    "console_url": "http://127.0.0.1:4173",
     "snippets_enabled": "1",
     "port": "8765",
 }
@@ -165,6 +167,13 @@ def _hotkey(v: str) -> str:
     return v
 
 
+def _url(v: str) -> str:
+    v = v.strip()
+    if not v.startswith(("http://", "https://")):
+        raise ValueError(f"not an http(s) URL: {v!r}")
+    return v
+
+
 def _voice(v: str) -> str:
     if len(v) > 100:
         raise ValueError("voice name too long")
@@ -182,6 +191,8 @@ VALIDATORS = {
     "snippets_enabled": _one_of("0", "1"),
     "hotkey_speak": _hotkey,
     "hotkey_dictate": _hotkey,
+    "hotkey_command": _hotkey,
+    "console_url": _url,
     "tts_voice": _voice,
 }
 

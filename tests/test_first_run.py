@@ -26,7 +26,7 @@ def _titles(items):
 def _handlers(app_module, obj):
     return {name: getattr(obj, name) for name in (
         "fix_permissions", "open_dashboard", "menu_dictate",
-        "menu_speak", "menu_stop")}
+        "menu_speak", "menu_command", "menu_stop")}
 
 
 class _Handlers:
@@ -35,6 +35,7 @@ class _Handlers:
     def open_dashboard(self, _): pass
     def menu_dictate(self, _): pass
     def menu_speak(self, _): pass
+    def menu_command(self, _): pass
     def menu_stop(self, _): pass
 
 
@@ -44,7 +45,7 @@ def test_menu_warns_when_accessibility_is_denied():
     import app
 
     items = app.build_menu(False, "<ctrl>+<alt>+s", "<ctrl>+<alt>+d",
-                           _handlers(app, _Handlers()))
+                           "<ctrl>+<alt>+c", _handlers(app, _Handlers()))
     titles = _titles(items)
     assert titles[0].startswith("⚠️")           # first thing the user sees
     assert "Accessibility" in titles[0]
@@ -55,7 +56,7 @@ def test_menu_is_clean_when_accessibility_is_granted():
     import app
 
     items = app.build_menu(True, "<ctrl>+<alt>+s", "<ctrl>+<alt>+d",
-                           _handlers(app, _Handlers()))
+                           "<ctrl>+<alt>+c", _handlers(app, _Handlers()))
     titles = _titles(items)
     assert not any(t.startswith("⚠️") for t in titles)
     assert titles[0] == "Open Walnut Dashboard"
@@ -67,7 +68,7 @@ def test_every_menu_item_has_a_callable_callback():
 
     for trusted in (True, False):
         for item in app.build_menu(trusted, "<ctrl>+<alt>+s", "<ctrl>+<alt>+d",
-                                   _handlers(app, _Handlers())):
+                                   "<ctrl>+<alt>+c", _handlers(app, _Handlers())):
             if item is not None:
                 assert callable(item._menuitem.action or item.callback), item.title
 
@@ -77,7 +78,7 @@ def test_walnut_app_binds_every_handler_build_menu_asks_for():
     import app
 
     for name in ("fix_permissions", "open_dashboard", "menu_dictate",
-                 "menu_speak", "menu_stop"):
+                 "menu_speak", "menu_command", "menu_stop"):
         assert callable(getattr(app.WalnutApp, name)), name
 
 

@@ -99,6 +99,8 @@ class Core:
         # ~1.6 GB download, during which the app otherwise looks inert.
         self.model_state = "loading"
         self.model_error = None
+        self.on_command = lambda text: None  # console voice command transcript
+        self.command_next = False  # route the next transcript to on_command
 
     # ------------------------------------------------------------ audio out
     # Two ways Walnut makes noise: `say` (narration) and `afplay` (replaying a
@@ -218,6 +220,21 @@ class Core:
         finally:
             self.lock.release()
 
+    def toggle_command(self) -> None:
+        """Like dictation, but the transcript goes to the Console bridge
+        (on_command) instead of being typed into the frontmost app."""
+        if not self.lock.acquire(blocking=False):
+            log("Still working on the last dictation — ignoring.")
+            return
+        try:
+            if self.recording():
+                self._stop_and_type()
+            else:
+                self.command_next = True
+                self._start_recording()
+        finally:
+            self.lock.release()
+
     def _start_recording(self) -> None:
         import sounddevice as sd
 
@@ -271,6 +288,8 @@ class Core:
         log("Recording…")
 
     def _stop_and_type(self) -> None:
+        was_command = self.command_next
+        self.command_next = False
         try:
             self.stream.stop()
             self.stream.close()
@@ -308,6 +327,12 @@ class Core:
             if not text:
                 return
             audio_path = self._save_audio(audio)
+            if was_command:
+                store.history_add("command", text, secs,
+                                  audio_path=audio_path)
+                threading.Thread(target=self.on_command, args=(text,),
+                                 daemon=True).start()
+                return
             store.history_add("dictation", text, secs,
                               snippet=used_snippet, audio_path=audio_path)
             store.prune_recordings()   # keep only the newest few .wav files
@@ -363,6 +388,7 @@ class HotkeyManager:
         # get_valid() heals a database holding a combo pynput cannot parse
         speak = store.get_valid("hotkey_speak")
         dictate = store.get_valid("hotkey_dictate")
+        command = store.get_valid("hotkey_command")
 
         def on_speak():
             threading.Thread(target=self.core.toggle_speak, daemon=True).start()
@@ -370,33 +396,40 @@ class HotkeyManager:
         def on_dictate():
             threading.Thread(target=self.core.toggle_dictate, daemon=True).start()
 
+        def on_command():
+            threading.Thread(target=self.core.toggle_command, daemon=True).start()
+
         try:
             self.listener = keyboard.GlobalHotKeys({speak: on_speak,
-                                                    dictate: on_dictate})
+                                                    dictate: on_dictate,
+                                                    command: on_command})
             self.listener.start()
             # pynput binds happily without Accessibility and then never fires.
             # Saying "Hotkeys active" here would be a lie, and it was the single
             # most common way Walnut appeared broken to a new user.
             if not permissions.accessibility_trusted():
-                log(f"Hotkeys registered ({speak}, {dictate}) but they will NOT "
-                    f"fire: Walnut has no Accessibility permission.")
+                log(f"Hotkeys registered ({speak}, {dictate}, {command}) but "
+                    f"they will NOT fire: Walnut has no Accessibility permission.")
                 log("Fix: System Settings → Privacy & Security → Accessibility, "
                     "add Walnut (or your terminal), then restart Walnut.")
                 return
         except Exception as e:
-            # e.g. the two combos collide, or macOS refuses the tap
+            # e.g. the combos collide, or macOS refuses the tap
             self.listener = None
-            log(f"Could not bind hotkeys ({speak}, {dictate}): {e}")
-            if (speak, dictate) == (store.DEFAULTS["hotkey_speak"],
-                                    store.DEFAULTS["hotkey_dictate"]):
+            log(f"Could not bind hotkeys ({speak}, {dictate}, {command}): {e}")
+            if (speak, dictate, command) == (store.DEFAULTS["hotkey_speak"],
+                                             store.DEFAULTS["hotkey_dictate"],
+                                             store.DEFAULTS["hotkey_command"]):
                 log("Defaults failed too — check Accessibility permission.")
                 return
             log("Falling back to the default hotkeys.")
             store.set_setting("hotkey_speak", store.DEFAULTS["hotkey_speak"])
             store.set_setting("hotkey_dictate", store.DEFAULTS["hotkey_dictate"])
+            store.set_setting("hotkey_command", store.DEFAULTS["hotkey_command"])
             self.start()
             return
-        log(f"Hotkeys active: {speak} (narrate), {dictate} (dictate)")
+        log(f"Hotkeys active: {speak} (narrate), {dictate} (dictate), "
+            f"{command} (console command)")
 
     def stop(self) -> None:
         if self.listener:

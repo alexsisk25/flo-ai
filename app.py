@@ -6,6 +6,7 @@ from pathlib import Path
 
 import rumps
 
+import console_bridge
 import core
 import overlay
 import permissions
@@ -18,7 +19,8 @@ ICON_REC = str(STATIC / "squirrel-rec.png")
 ICON_BUSY = str(STATIC / "squirrel-busy.png")
 
 
-def build_menu(trusted: bool, speak: str, dictate: str, handlers: dict) -> list:
+def build_menu(trusted: bool, speak: str, dictate: str, command: str,
+               handlers: dict) -> list:
     """The menu bar, as a plain list, assembled before rumps ever sees it.
 
     This used to be built by assigning `self.menu` and then calling
@@ -45,6 +47,8 @@ def build_menu(trusted: bool, speak: str, dictate: str, handlers: dict) -> list:
                        callback=handlers["menu_dictate"]),
         rumps.MenuItem(f"Narrate Selection   {pretty(speak)}",
                        callback=handlers["menu_speak"]),
+        rumps.MenuItem(f"Console Command   {pretty(command)}",
+                       callback=handlers["menu_command"]),
         rumps.MenuItem("Stop Narration", callback=handlers["menu_stop"]),
         None,
     ]
@@ -66,6 +70,7 @@ class WalnutApp(rumps.App):
         self.core = core.Core()
         self.core.on_state = self.set_state
         self.core.on_level = self.overlay.set_level
+        self.core.on_command = self.run_console_command
         self.hotkeys = core.HotkeyManager(self.core)
         server.CORE = self.core
         server.HOTKEYS = self.hotkeys
@@ -80,12 +85,14 @@ class WalnutApp(rumps.App):
 
         speak = store.get_valid("hotkey_speak")
         dictate = store.get_valid("hotkey_dictate")
+        command = store.get_valid("hotkey_command")
         trusted = permissions.accessibility_trusted()
-        self.menu = build_menu(trusted, speak, dictate, {
+        self.menu = build_menu(trusted, speak, dictate, command, {
             "fix_permissions": self.fix_permissions,
             "open_dashboard": self.open_dashboard,
             "menu_dictate": self.menu_dictate,
             "menu_speak": self.menu_speak,
+            "menu_command": self.menu_command,
             "menu_stop": self.menu_stop,
         })
         if not trusted:
@@ -140,8 +147,15 @@ class WalnutApp(rumps.App):
     def menu_speak(self, _):
         threading.Thread(target=self.core.toggle_speak, daemon=True).start()
 
+    def menu_command(self, _):
+        threading.Thread(target=self.core.toggle_command, daemon=True).start()
+
     def menu_stop(self, _):
         self.core.stop_all()   # narration and replayed recordings alike
+
+    def run_console_command(self, text: str) -> None:
+        console_bridge.handle(
+            text, lambda t: self.core.speak(t, record_history=False))
 
 
 def pretty(hotkey: str) -> str:
