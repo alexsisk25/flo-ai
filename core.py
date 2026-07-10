@@ -231,20 +231,40 @@ class Core:
             except Exception:
                 pass
 
+        def open_stream():
+            s = sd.InputStream(samplerate=SAMPLE_RATE, channels=1,
+                               dtype="float32", callback=on_audio)
+            try:
+                s.start()
+            except Exception:
+                s.close()          # never leave a half-open stream behind
+                raise
+            return s
+
         # If opening the mic fails (permission denied, device in use), leave
         # self.stream as None. Assigning first meant recording() reported True
         # forever and the next hotkey press tried to stop a dead stream.
         try:
-            stream = sd.InputStream(
-                samplerate=SAMPLE_RATE, channels=1, dtype="float32",
-                callback=on_audio,
-            )
-            stream.start()
-        except Exception as e:
-            log(f"Could not open the microphone: {e}")
-            play_sound(SOUND_ERROR)
-            self.on_state("idle")
-            return
+            stream = open_stream()
+        except Exception as first:
+            # PortAudio enumerates audio devices once, when it initialises. If
+            # the default input changed since Walnut started — headphones in, a
+            # Bluetooth mic, a meeting grabbing the device — those cached
+            # indices go stale and EVERY open fails with a bare internal error.
+            # The process is then dead to dictation until it restarts, which is
+            # exactly what it looked like: hotkeys firing, nothing recording.
+            # Rescanning is cheap; do it and try once more.
+            log(f"Microphone open failed ({first}); rescanning audio devices…")
+            try:
+                sd._terminate()
+                sd._initialize()
+                stream = open_stream()
+            except Exception as second:
+                log(f"Could not open the microphone: {second}")
+                play_sound(SOUND_ERROR)
+                self.on_state("idle")
+                return
+            log("Recovered after rescanning audio devices.")
         self.stream = stream
         play_sound(SOUND_START)
         self.on_state("recording")

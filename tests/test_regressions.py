@@ -362,3 +362,79 @@ def test_port_in_use_detection():
     assert server.port_in_use(port) is True
     s.close()
     assert server.port_in_use(port) is False
+
+
+# ------------------------------------------------------- microphone recovery
+
+class _FakeStream:
+    def __init__(self, fail_start=False):
+        self.fail_start = fail_start
+        self.closed = False
+        self.started = False
+
+    def start(self):
+        if self.fail_start:
+            raise RuntimeError("Error opening InputStream: PaErrorCode -9986")
+        self.started = True
+
+    def stop(self): pass
+
+    def close(self): self.closed = True
+
+
+class _FakeSD:
+    """Mimics sounddevice: opens fail until PortAudio is reinitialised."""
+
+    def __init__(self, heal_on_reinit=True):
+        self.reinitialised = False
+        self.heal_on_reinit = heal_on_reinit
+        self.streams = []
+
+    def InputStream(self, **kw):
+        broken = not (self.reinitialised and self.heal_on_reinit)
+        s = _FakeStream(fail_start=broken)
+        self.streams.append(s)
+        return s
+
+    def _terminate(self): pass
+
+    def _initialize(self): self.reinitialised = True
+
+
+def _install_fake_sd(monkeypatch, fake):
+    import sys
+    monkeypatch.setitem(sys.modules, "sounddevice", fake)
+
+
+def test_stale_audio_devices_are_rescanned_and_recording_recovers(db, monkeypatch):
+    """PortAudio caches the device list at init. Plug in headphones while
+    Walnut runs and every mic open fails with a bare internal error — the
+    process is dead to dictation until restart. It must rescan and retry."""
+    import core
+
+    fake = _FakeSD(heal_on_reinit=True)
+    _install_fake_sd(monkeypatch, fake)
+    c = core.Core()
+    c._start_recording()
+
+    assert fake.reinitialised, "did not rescan devices after the first failure"
+    assert c.recording(), "should be recording after the retry succeeded"
+    assert fake.streams[0].closed, "the failed stream must not be leaked"
+    c.stream = None
+
+
+def test_a_truly_dead_microphone_fails_cleanly(db, monkeypatch):
+    """If it fails even after a rescan: no exception, no phantom stream, and
+    recording() must not lie."""
+    import core
+
+    fake = _FakeSD(heal_on_reinit=False)
+    _install_fake_sd(monkeypatch, fake)
+    c = core.Core()
+    states = []
+    c.on_state = states.append
+    c._start_recording()
+
+    assert c.stream is None and not c.recording()
+    assert states[-1] == "idle"
+    assert all(s.closed for s in fake.streams), "half-open streams left behind"
