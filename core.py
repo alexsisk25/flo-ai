@@ -362,11 +362,11 @@ class Core:
         saved = get_clipboard()
         try:
             set_clipboard(text)
-            time.sleep(0.15)
+            time.sleep(0.25)   # slower apps read the clipboard late; 0.15 dropped pastes
             with self.kb.pressed(Key.cmd):
                 self.kb.press("v")
                 self.kb.release("v")
-            time.sleep(0.30)
+            time.sleep(0.75)   # let the paste land before the clipboard is restored
         finally:
             set_clipboard(saved)   # never strand the transcript in the clipboard
 
