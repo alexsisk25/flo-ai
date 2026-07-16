@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Walnut</title>
+<title>Flo</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐿️</text></svg>">
 <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
 <style>
 :root{
-  /* Arts & Crafts parchment palette — walnut ink / forest / rust / ochre */
+  /* Arts & Crafts parchment palette — flo ink / forest / rust / ochre */
   --bg:#ece4d0; --side:#e3d9c0; --card:#f7f2e4; --card2:#efe8d5;
   --border:#c8bb9b; --border-soft:#d9cfb4;
   --text:#2a241a; --muted:#675e4c; --dim:#6f664f;
@@ -308,8 +308,8 @@ svg.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;strok
 
 <aside id="side">
   <div class="brand">
-    <img class="mark" src="/static/apple-touch-icon.png" alt="Walnut squirrel">
-    <div class="logo">Walnut</div>
+    <img class="mark" src="/static/apple-touch-icon.png" alt="Flo squirrel">
+    <div class="logo">Flo</div>
     <div class="powered">Powered by you</div>
   </div>
   <nav id="nav">
@@ -335,7 +335,7 @@ svg.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;strok
   <div class="spread">
     <div>
       <h1 id="greeting">Good afternoon</h1>
-      <div class="sub">Here's what Walnut has squirreled away for you</div>
+      <div class="sub">Here's what Flo has squirreled away for you</div>
     </div>
     <div class="row">
       <select id="period">
@@ -355,7 +355,7 @@ svg.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;strok
 
   <div class="banner gold section-gap spread" id="guide">
     <div>
-      <h4 style="color:var(--text)">Learn how to use Walnut</h4>
+      <h4 style="color:var(--text)">Learn how to use Flo</h4>
       <p>Practice read-aloud first, then dictation and snippets. Watch the menu bar icon while recording.</p>
       <p style="margin-top:8px">Read aloud <span class="kbd" id="kbd-speak">⌃⌥S</span>
          &nbsp;·&nbsp; Dictate <span class="kbd" id="kbd-dictate">⌃⌥D</span></p>
@@ -383,7 +383,7 @@ svg.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;strok
   </div>
 
   <div class="banner amber section-gap">
-    <h4>Make Walnut sound like <span style="font-style:italic">you</span></h4>
+    <h4>Make Flo sound like <span style="font-style:italic">you</span></h4>
     <p>Add words to your dictionary so transcriptions match your vocabulary. Create snippets for phrases you use often.</p>
     <div class="row" style="margin-top:12px">
       <button onclick="location.hash='dictionary'">Dictionary</button>
@@ -437,7 +437,7 @@ svg.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;strok
 <!-- ======================= DICTIONARY ======================= -->
 <section id="page-dictionary" class="hidden">
   <h1>Dictionary</h1>
-  <div class="sub">Teach Walnut your words — names, acronyms, jargon — so transcriptions match your vocabulary.</div>
+  <div class="sub">Teach Flo your words — names, acronyms, jargon — so transcriptions match your vocabulary.</div>
 
   <div class="card">
     <h3 class="serif">Words</h3>
@@ -467,7 +467,7 @@ svg.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;strok
   <div class="spread">
     <div>
       <h1>Snippets</h1>
-      <div class="sub">Stop typing the same things over and over. Save it once. Say it. Walnut types it for you.</div>
+      <div class="sub">Stop typing the same things over and over. Save it once. Say it. Flo types it for you.</div>
     </div>
     <div class="row">
       <button id="snip-toggle" class="primary" onclick="toggleSnippets()">On</button>
@@ -479,7 +479,7 @@ svg.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;strok
     <div class="spread">
       <div>
         <h4>The things your keyboard shouldn't forget.</h4>
-        <p>Save your most-used text: emails, links, addresses, bios. Say the phrase. Walnut types it instantly, right where you need it.</p>
+        <p>Save your most-used text: emails, links, addresses, bios. Say the phrase. Flo types it instantly, right where you need it.</p>
         <p style="margin-top:10px"><span class="trigger">my calendar</span> <span class="arrow">→</span> <span class="muted">calendly.com/your-name/30min</span></p>
         <p style="margin-top:6px"><span class="trigger">quick context</span> <span class="arrow">→</span> <span class="muted">Quick context: I lead platform engineering.</span></p>
       </div>
@@ -490,7 +490,7 @@ svg.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;strok
   <div class="card section-gap hidden" id="snip-new">
     <h3 class="serif">New snippet</h3>
     <div class="field"><label>Say this phrase…</label><input id="snip-trigger" placeholder="insert my calendar"></div>
-    <div class="field" style="max-width:none"><label>…and Walnut types this</label>
+    <div class="field" style="max-width:none"><label>…and Flo types this</label>
       <textarea id="snip-expansion" rows="3" placeholder="https://calendly.com/…"></textarea></div>
     <div class="row" style="margin-top:14px">
       <button class="primary" onclick="saveNewSnippet()">Save snippet</button>
@@ -507,7 +507,7 @@ svg.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;strok
   <div class="spread">
     <div>
       <h1>History</h1>
-      <div class="sub">Find, replay, and copy past Walnut sessions.</div>
+      <div class="sub">Find, replay, and copy past Flo sessions.</div>
     </div>
     <button onclick="loadHistory()"><span class="glyph">↻</span> Refresh</button>
   </div>
@@ -619,7 +619,7 @@ async function api(url, opts){
   try {
     res = await fetch(url, opts ? {headers:{'Content-Type':'application/json'}, ...opts} : undefined);
   } catch (e) {
-    toast('Walnut isn\'t responding — is it still running?');
+    toast('Flo isn\'t responding — is it still running?');
     throw e;
   }
   const body = await res.text();
@@ -697,7 +697,7 @@ async function loadStatus(){
     el.classList.add('warn');
     el.innerHTML = `<div>
         <h4 class="serif">The speech model didn't load</h4>
-        <p>${esc(s.model_error || '')} — check your connection and restart Walnut.
+        <p>${esc(s.model_error || '')} — check your connection and restart Flo.
            Narration still works.</p>
       </div>`;
   // A dismissed nudge stays dismissed — except 'missing', which is a real
@@ -711,7 +711,7 @@ async function loadStatus(){
     const picks = s.voice_suggestions || [];
     el.classList.add(s.voice_reason === 'missing' ? 'warn' : 'info');
     el.innerHTML = `<div>
-        <h4 class="serif">${esc(s.voice_title || 'Walnut sounds robotic?')}</h4>
+        <h4 class="serif">${esc(s.voice_title || 'Flo sounds robotic?')}</h4>
         <p>${esc(s.voice_hint || '')}</p>
         ${picks.length
           ? `<p style="margin-top:6px">Installed and ready: ${
@@ -735,7 +735,7 @@ async function loadStatus(){
 }
 async function openAccessibility(){
   try { await api('/api/permissions/open', {method:'POST'}); } catch {}
-  toast('Add Walnut under Accessibility, then restart it');
+  toast('Add Flo under Accessibility, then restart it');
 }
 async function openVoiceSettings(){
   try { await api('/api/voices/open', {method:'POST'}); } catch {}
@@ -772,10 +772,10 @@ async function loadDashboard(){
   // First launch is a wall of zeros. Say what to press instead.
   const empty = !d.dictation_sessions && !d.readback_sessions;
   const sub = $('#page-dashboard .sub');
-  $('#greeting').textContent = empty ? 'Welcome to Walnut' : greeting();
+  $('#greeting').textContent = empty ? 'Welcome to Flo' : greeting();
   if (sub) sub.textContent = empty
     ? `Nothing squirreled away yet. Press ${$('#kbd-dictate').textContent} and start talking, or select text anywhere and press ${$('#kbd-speak').textContent}.`
-    : "Here's what Walnut has squirreled away for you";
+    : "Here's what Flo has squirreled away for you";
   $('#c-rb').textContent = d.readback_sessions;
   $('#c-dic').textContent = d.dictation_sessions;
   $('#p-active').textContent = d.active_days;

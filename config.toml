@@ -1,23 +1,23 @@
-# Walnut configuration.
+# Flo configuration.
 #
-# Read ONCE, on first run, to seed walnut.db. After that everything lives in
+# Read ONCE, on first run, to seed flo.db. After that everything lives in
 # the dashboard at http://127.0.0.1:8765 and changes apply live.
-# (To start over: delete walnut.db and restart Walnut.)
+# (To start over: delete flo.db and restart Flo.)
 #
-# Walnut ships blank on purpose. The examples below are commented out —
+# Flo ships blank on purpose. The examples below are commented out —
 # uncomment them, or just add your own from the dashboard.
 
 [hotkeys]
-speak = "<ctrl>+<alt>+s"    # narrate selected text (press again to stop)
-dictate = "<ctrl>+<alt>+d"  # toggle dictation into the frontmost app
-# Avoid <ctrl>+<alt>+<space>: macOS uses it to switch input sources.
+speak = "<alt>+s"    # narrate selected text: Right Option + S (press again to stop)
+# Dictation is PUSH-TO-TALK: HOLD the Right Option key, speak, release to type.
+# It's a held key, not a combo, so it isn't configured here.
 
 [tts]
 voice = ""   # empty = system default; run `say -v '?'` to list voices
 rate = 210   # words per minute (say's default is ~175)
 
 [stt]
-# Leave both empty and Walnut fits itself to your Mac:
+# Leave both empty and Flo fits itself to your Mac:
 #   Apple Silicon -> mlx-whisper on the GPU, large-v3-turbo
 #   Intel         -> faster-whisper on the CPU, small.en
 # Override the model with any id from the Settings page (e.g. "small.en"),
@@ -38,6 +38,6 @@ hints = []
 # "git hub" = "GitHub"
 
 [snippets]
-# Say the trigger phrase exactly, and Walnut types the expansion instead.
+# Say the trigger phrase exactly, and Flo types the expansion instead.
 # "insert my email" = "you@example.com"
 # "insert sign off" = "Best,\nYour Name"

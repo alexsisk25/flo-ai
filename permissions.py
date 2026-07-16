@@ -1,7 +1,7 @@
 """macOS permission checks.
 
 Global hotkeys and typing into other apps both require Accessibility. Without
-it pynput raises nothing — the listener simply never fires. Walnut used to
+it pynput raises nothing — the listener simply never fires. Flo used to
 print "Hotkeys active" regardless, so the modal first-run failure looked like
 a working app that ignored you. Everything here exists to make that legible.
 
@@ -53,7 +53,7 @@ def request_microphone() -> None:
     PortAudio/sounddevice never triggers the TCC prompt on its own — it just
     returns silence if the permission hasn't been granted. Calling this at
     startup ensures the system dialog appears on first launch and that
-    Walnut.app shows up in Privacy & Security → Microphone.
+    Flo.app shows up in Privacy & Security → Microphone.
 
     Uses objc.loadBundle (pyobjc-core, already a dependency) to load
     AVFoundation directly — no extra package needed.
@@ -77,7 +77,7 @@ def summary() -> dict:
     return {
         "accessibility": ok,
         "hint": None if ok else (
-            "Walnut needs Accessibility permission to use global hotkeys and "
+            "Flo needs Accessibility permission to use global hotkeys and "
             "type into other apps. System Settings → Privacy & Security → "
-            "Accessibility. Restart Walnut afterwards."),
+            "Accessibility. Restart Flo afterwards."),
     }

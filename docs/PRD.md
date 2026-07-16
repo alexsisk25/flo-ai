@@ -1,4 +1,4 @@
-# Walnut v1.0 — Shippable
+# Flo v1.0 — Shippable
 
 **Status:** shipped (v1.0.0)
 **Author:** Brandon Jeppson
@@ -13,16 +13,16 @@
 
 ## 1. Problem
 
-Walnut works. It is also, today, unshippable to anyone who did not build it.
+Flo works. It is also, today, unshippable to anyone who did not build it.
 
 The engineering is sound: hardware-adaptive speech backends, a validated
 settings layer, a 35-test regression suite. None of that is what a new user
 meets. What they meet is the first ten minutes, and the first ten minutes are
-where Walnut fails.
+where Flo fails.
 
 The defining failure: **macOS requires Accessibility permission for global
 hotkeys, and without it `pynput` does not error — it silently never fires.**
-Walnut prints `Hotkeys active`, shows a contented squirrel in the menu bar, and
+Flo prints `Hotkeys active`, shows a contented squirrel in the menu bar, and
 does nothing when you press the key. The app is not broken. The app is lying.
 
 A friend who hits this has no error, no banner, no log they would know to open.
@@ -32,24 +32,24 @@ They close the terminal and never mention it.
 
 A person who has never seen this repo can go from `git clone` to a working
 dictation in under ten minutes, **and at every moment where it could fail,
-Walnut tells them exactly what is wrong and how to fix it.**
+Flo tells them exactly what is wrong and how to fix it.**
 
 Robustness is done. This release is about legibility.
 
 ## 3. Non-goals
 
 - Notarized `.dmg` distribution. Friends clone the repo. Revisit if strangers ask.
-- Windows or Linux. Walnut is built on `say`, `afplay`, and AppKit.
+- Windows or Linux. Flo is built on `say`, `afplay`, and AppKit.
 - Cloud anything. The product is that nothing leaves the machine.
 - A settings UI for every knob. `config.toml` and the dashboard already cover it.
 
 ## 4. Success criteria
 
-Walnut v1.0 ships when all of the following are true:
+Flo v1.0 ships when all of the following are true:
 
 | # | Criterion | How it's verified |
 |---|---|---|
-| 1 | Walnut never claims a capability it does not have | `Hotkeys active` is printed only when `AXIsProcessTrusted()` |
+| 1 | Flo never claims a capability it does not have | `Hotkeys active` is printed only when `AXIsProcessTrusted()` |
 | 2 | A user missing Accessibility is told, in the app | menu bar item + dashboard banner + `--doctor` |
 | 3 | A user can see the model downloading | menu bar state + dashboard banner |
 | 4 | The repo is legally usable | `LICENSE` exists |
@@ -88,7 +88,7 @@ The stylesheet was rewritten wholesale and no human has seen the result.
 menu" for anyone with two keyboard layouts. Move dictate to ⌃⌥D. Existing
 databases keep their bindings.
 
-**P1.6 Intel honesty.** Walnut has never run on Intel silicon. The thread cap
+**P1.6 Intel honesty.** Flo has never run on Intel silicon. The thread cap
 that works around a ctranslate2 segfault has never executed on the platform it
 exists for. Until someone runs it there, the README says so.
 
@@ -106,7 +106,7 @@ breaks it. Detect and say so.
 - **Accessibility cannot be granted programmatically.** We can detect and deep-link;
   the user must click. The prompt API (`AXIsProcessTrustedWithOptions`) shows a
   system dialog once per binary. Acceptable.
-- **TCC identity of `Walnut.app`** is the ad-hoc-signed bundle, but the executable
+- **TCC identity of `Flo.app`** is the ad-hoc-signed bundle, but the executable
   is a shell script. Grant behaviour is untested. Document, don't guess.
 - **Intel remains unverified** after this release. Mitigated by labelling, not by
   code.

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Walnut — your work, narrated. Local voice dictation and narration for macOS.
+"""Flo — your work, narrated. Local voice dictation and narration for macOS.
 
-Run `uv run walnut.py` to start the menu bar app (🥜) with global hotkeys
+Run `uv run flo.py` to start the menu bar app (🥜) with global hotkeys
 and the dashboard at http://127.0.0.1:8765.
 
   * Narrate hotkey: reads the text you have selected in ANY app aloud.
   * Dictate hotkey: toggle recording; speech is transcribed locally and typed
-    into the frontmost app. Walnut picks the engine to match your Mac:
+    into the frontmost app. Flo picks the engine to match your Mac:
     mlx-whisper on the Apple Silicon GPU, faster-whisper on Intel CPUs.
   * Dashboard: stats, dictionary, snippets, history, shortcuts, settings.
 
@@ -40,10 +40,10 @@ def self_test() -> int:
     import store
     from pathlib import Path
 
-    tmp = Path(tempfile.mkdtemp(prefix="walnut-selftest-"))
+    tmp = Path(tempfile.mkdtemp(prefix="flo-selftest-"))
     if store.DB_PATH.exists():
-        shutil.copy(store.DB_PATH, tmp / "walnut.db")   # keep the user's settings
-    store.DB_PATH = tmp / "walnut.db"
+        shutil.copy(store.DB_PATH, tmp / "flo.db")   # keep the user's settings
+    store.DB_PATH = tmp / "flo.db"
     store.RECORDINGS = tmp / "recordings"
 
     # core reads settings through `store`, so import it only after redirection
@@ -51,7 +51,7 @@ def self_test() -> int:
 
     store.init()
     store.replacements_add("hub spot", "HubSpot")
-    phrase = "Walnut is working. This came from hub spot."
+    phrase = "This is a working test. This came from hub spot."
     wav = tmp / "selftest.wav"
 
     log("TTS check: rendering test phrase with `say`…")
@@ -75,7 +75,7 @@ def self_test() -> int:
     log(f"Round-trip transcript: {text!r}")
     shutil.rmtree(tmp, ignore_errors=True)
 
-    ok = "walnut" in text.lower() and "working" in text.lower()
+    ok = "working" in text.lower() and "test" in text.lower()
     fixup_ok = "HubSpot" in text
     log(f"Transcription match: {'PASS' if ok else 'FAIL'}")
     log(f"Vocabulary fix-up ('hub spot' → 'HubSpot'): {'PASS' if fixup_ok else 'FAIL'}")
@@ -86,7 +86,7 @@ VERSION = "1.1.3"
 
 
 def doctor() -> int:
-    """Print what Walnut sees. First thing to run when something is off."""
+    """Print what Flo sees. First thing to run when something is off."""
     import permissions
     import stt as speech
     import store
@@ -94,18 +94,18 @@ def doctor() -> int:
 
     store.init()
     info = speech.describe(store.get("stt_backend"))
-    log(f"Walnut:       v{VERSION}")
+    log(f"Flo:       v{VERSION}")
     log(f"Mac:          {info['chip']} ({info['machine']})")
     log(f"Engine:       {info['backend']} on {info['accelerator']}")
     log(f"Installed:    {', '.join(info['available_backends'])}")
     log(f"Model:        {speech.canonical(store.get('stt_model'))}")
     log(f"Best here:    {info['default_model']}")
     log(f"Hotkeys:      {store.get_valid('hotkey_speak')} (narrate), "
-        f"{store.get_valid('hotkey_dictate')} (dictate)")
+        f"Right Option hold (dictate, push-to-talk)")
     log(f"Recordings:   keeping {store.get_valid('recordings_keep')}, "
         f"in {store.RECORDINGS}")
     log(f"Database:     {store.DB_PATH}")
-    log("Log:          /tmp/walnut.log  (when started at login)")
+    log("Log:          /tmp/flo.log  (when started at login)")
 
     voice = store.get_valid("tts_voice") or "(system default)"
     vstat = voices.status(store.get("tts_voice"), store.get("stt_language"))
@@ -119,7 +119,7 @@ def doctor() -> int:
     log(f"Accessibility:{' granted' if trusted else ' MISSING'}")
     if not trusted:
         log("  → Hotkeys will register but never fire. System Settings →")
-        log("    Privacy & Security → Accessibility. Then restart Walnut.")
+        log("    Privacy & Security → Accessibility. Then restart Flo.")
     if info["backend"] == speech.FASTER and speech.is_apple_silicon():
         log("NOTE: Apple Silicon is running the CPU engine. Install mlx-whisper "
             "(`uv sync`) or set backend to 'auto' for a big speed-up.")
@@ -132,7 +132,7 @@ def main() -> int:
                         help="run a no-mic end-to-end self test and exit")
     parser.add_argument("--doctor", action="store_true",
                         help="show hardware, engine, model, permissions, paths")
-    parser.add_argument("--version", action="version", version=f"Walnut {VERSION}")
+    parser.add_argument("--version", action="version", version=f"Flo {VERSION}")
     args = parser.parse_args()
 
     if args.doctor:
@@ -140,9 +140,9 @@ def main() -> int:
     if args.test:
         return self_test()
 
-    from app import WalnutApp
+    from app import FloApp
 
-    WalnutApp().run()
+    FloApp().run()
     return 0
 
 

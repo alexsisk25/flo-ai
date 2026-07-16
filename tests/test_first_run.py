@@ -1,6 +1,6 @@
 """What a stranger's Mac sees on first launch.
 
-v1.0.0 crash-looped here. `WalnutApp.__init__` called `self.menu.insert(0, …)`
+v1.0.0 crash-looped here. `FloApp.__init__` called `self.menu.insert(0, …)`
 when Accessibility was missing; `rumps.Menu` is an OrderedDict with no `insert`.
 The branch only runs for users who haven't granted the permission — which is
 everyone, once — so every test on the developer's machine passed while the app
@@ -30,7 +30,7 @@ def _handlers(app_module, obj):
 
 
 class _Handlers:
-    """Stand-ins with the same names WalnutApp binds."""
+    """Stand-ins with the same names FloApp binds."""
     def fix_permissions(self, _): pass
     def open_dashboard(self, _): pass
     def menu_dictate(self, _): pass
@@ -49,7 +49,7 @@ def test_menu_warns_when_accessibility_is_denied():
     titles = _titles(items)
     assert titles[0].startswith("⚠️")           # first thing the user sees
     assert "Accessibility" in titles[0]
-    assert "Open Walnut Dashboard" in titles
+    assert "Open Flo Dashboard" in titles
 
 
 def test_menu_is_clean_when_accessibility_is_granted():
@@ -59,7 +59,7 @@ def test_menu_is_clean_when_accessibility_is_granted():
                            "<ctrl>+<alt>+c", _handlers(app, _Handlers()))
     titles = _titles(items)
     assert not any(t.startswith("⚠️") for t in titles)
-    assert titles[0] == "Open Walnut Dashboard"
+    assert titles[0] == "Open Flo Dashboard"
 
 
 def test_every_menu_item_has_a_callable_callback():
@@ -73,22 +73,22 @@ def test_every_menu_item_has_a_callable_callback():
                 assert callable(item._menuitem.action or item.callback), item.title
 
 
-def test_walnut_app_binds_every_handler_build_menu_asks_for():
-    """build_menu() takes handlers by name; WalnutApp must actually have them."""
+def test_flo_app_binds_every_handler_build_menu_asks_for():
+    """build_menu() takes handlers by name; FloApp must actually have them."""
     import app
 
     for name in ("fix_permissions", "open_dashboard", "menu_dictate",
                  "menu_speak", "menu_command", "menu_stop"):
-        assert callable(getattr(app.WalnutApp, name)), name
+        assert callable(getattr(app.FloApp, name)), name
 
 
 # ------------------------------------------------------------ the real thing
 
-def test_walnut_app_constructs_with_accessibility_denied(
+def test_flo_app_constructs_with_accessibility_denied(
         first_run, free_port, monkeypatch):
     """The test that would have caught the v1.0.0 crash loop.
 
-    Constructs the real WalnutApp — real rumps, real menu assignment — in the
+    Constructs the real FloApp — real rumps, real menu assignment — in the
     state every new user is in. Overlay is stubbed because it talks to AppKit's
     main run loop, which pytest does not have; nothing else is.
     """
@@ -104,9 +104,9 @@ def test_walnut_app_constructs_with_accessibility_denied(
 
     monkeypatch.setattr(app.overlay, "Overlay", _NoOverlay)
     monkeypatch.setattr(app.server, "run", lambda port: None)   # don't bind
-    monkeypatch.setattr(app.WalnutApp, "_guarded", staticmethod(lambda fn, *a: None))
+    monkeypatch.setattr(app.FloApp, "_guarded", staticmethod(lambda fn, *a: None))
 
-    instance = app.WalnutApp()          # this raised AttributeError in v1.0.0
+    instance = app.FloApp()          # this raised AttributeError in v1.0.0
     try:
         titles = [k for k in instance.menu.keys()]
         assert any("Accessibility" in t for t in titles), titles
@@ -116,7 +116,7 @@ def test_walnut_app_constructs_with_accessibility_denied(
         instance.core.stop_all()
 
 
-def test_walnut_app_constructs_when_trusted(db, free_port, monkeypatch):
+def test_flo_app_constructs_when_trusted(db, free_port, monkeypatch):
     import app
     import permissions
     import store
@@ -131,9 +131,9 @@ def test_walnut_app_constructs_when_trusted(db, free_port, monkeypatch):
 
     monkeypatch.setattr(app.overlay, "Overlay", _NoOverlay)
     monkeypatch.setattr(app.server, "run", lambda port: None)
-    monkeypatch.setattr(app.WalnutApp, "_guarded", staticmethod(lambda fn, *a: None))
+    monkeypatch.setattr(app.FloApp, "_guarded", staticmethod(lambda fn, *a: None))
 
-    instance = app.WalnutApp()
+    instance = app.FloApp()
     try:
         assert not any("Accessibility" in t for t in instance.menu.keys())
     finally:
@@ -186,6 +186,6 @@ def test_source_never_calls_menu_insert():
     (rumps.alert, {"title", "message", "ok", "cancel", "other", "icon_path"}),
 ])
 def test_rumps_signatures_are_what_we_assume(call, params):
-    """Every rumps API Walnut calls, checked against the installed library."""
+    """Every rumps API Flo calls, checked against the installed library."""
     actual = set(inspect.signature(call).parameters) - {"self"}
     assert params <= actual or actual <= params, actual

@@ -1,4 +1,4 @@
-"""Point Walnut at a throwaway database for every test."""
+"""Point Flo at a throwaway database for every test."""
 
 import sys
 from pathlib import Path
@@ -11,10 +11,10 @@ sys.path.insert(0, str(REPO))
 
 @pytest.fixture
 def db(tmp_path, monkeypatch):
-    """A fresh, isolated store. Never touches the real walnut.db."""
+    """A fresh, isolated store. Never touches the real flo.db."""
     import store
 
-    monkeypatch.setattr(store, "DB_PATH", tmp_path / "walnut.db")
+    monkeypatch.setattr(store, "DB_PATH", tmp_path / "flo.db")
     monkeypatch.setattr(store, "RECORDINGS", tmp_path / "recordings")
     store.RECORDINGS.mkdir()
     store.init()

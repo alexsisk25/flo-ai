@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #
-# Walnut installer.  curl-free path:  git clone … && cd walnut && ./install.sh
+# Flo installer.  curl-free path:  git clone … && cd flo && ./install.sh
 #
 #   ./install.sh              install deps, run a self-test
-#   ./install.sh --app        …and build Walnut.app (double-click / Spotlight)
-#   ./install.sh --login      …and start Walnut automatically at login
+#   ./install.sh --app        …and build Flo.app (double-click / Spotlight)
+#   ./install.sh --login      …and start Flo automatically at login
 #   ./install.sh --uninstall  remove the app + login item (keeps your data)
 #
 # Flags combine:  ./install.sh --app --login
@@ -12,7 +12,7 @@
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LABEL="com.walnut.app"
+LABEL="com.flo.app"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 PORT=8765
 
@@ -36,15 +36,15 @@ done
 app_dir() {
   if [ -w /Applications ]; then echo "/Applications"; else echo "$HOME/Applications"; fi
 }
-APP="$(app_dir)/Walnut.app"
+APP="$(app_dir)/Flo.app"
 
 RETIRED=0
 
-# Retire any older Walnut login item (e.g. a hand-written com.brandon.walnut)
+# Retire any older Flo login item (e.g. a hand-written com.brandon.flo)
 # so we never end up with two instances fighting over port 8765 and the hotkeys.
 retire_legacy() {
   local p
-  for p in "$HOME"/Library/LaunchAgents/*walnut*.plist; do
+  for p in "$HOME"/Library/LaunchAgents/*flo*.plist; do
     [ -e "$p" ] || continue                 # no match: glob stayed literal
     [ "$p" = "$PLIST" ] && continue         # ours, not legacy
     launchctl unload "$p" 2>/dev/null || true
@@ -62,7 +62,7 @@ uninstall() {
     bold "Removed login item."
     removed=1
   fi
-  for candidate in /Applications/Walnut.app "$HOME/Applications/Walnut.app"; do
+  for candidate in /Applications/Flo.app "$HOME/Applications/Flo.app"; do
     if [ -d "$candidate" ]; then
       rm -rf "$candidate"
       bold "Removed $candidate"
@@ -71,14 +71,14 @@ uninstall() {
   done
   retire_legacy
   if [ "$removed" = 1 ] || [ "$RETIRED" = 1 ]; then
-    bold "Your walnut.db and recordings are untouched."
+    bold "Your flo.db and recordings are untouched."
   else
     echo "Nothing installed."
   fi
   exit 0
 }
 
-# ---------------------------------------------------------------- Walnut.app
+# ---------------------------------------------------------------- Flo.app
 # A thin bundle: the executable is a shell script that runs the repo through
 # uv. No frozen Python, no code signing, nothing to rebuild when the code
 # changes — the app is a launcher, the repo stays the source of truth.
@@ -91,7 +91,7 @@ build_app() {
   # Icon: source art is 180px, so stop at 256 rather than upscale to a mushy
   # 1024. macOS scales down from 256 cleanly for Dock/Finder/Spotlight.
   work="$(mktemp -d)"
-  icons="$work/walnut.iconset"
+  icons="$work/flo.iconset"
   mkdir -p "$icons"
   for sz in 16 32 128 256; do
     sips -z $sz $sz "$REPO/static/apple-touch-icon.png" \
@@ -101,7 +101,7 @@ build_app() {
   sips -z 32  32  "$REPO/static/apple-touch-icon.png" --out "$icons/icon_16x16@2x.png"  >/dev/null 2>&1
   sips -z 64  64  "$REPO/static/apple-touch-icon.png" --out "$icons/icon_32x32@2x.png"  >/dev/null 2>&1
   sips -z 256 256 "$REPO/static/apple-touch-icon.png" --out "$icons/icon_128x128@2x.png" >/dev/null 2>&1
-  iconutil -c icns "$icons" -o "$APP/Contents/Resources/walnut.icns" 2>/dev/null \
+  iconutil -c icns "$icons" -o "$APP/Contents/Resources/flo.icns" 2>/dev/null \
     || bold "  (icon build skipped; app will use the default icon)"
   rm -rf "$work"
 
@@ -111,24 +111,24 @@ build_app() {
   "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleName</key><string>Walnut</string>
-  <key>CFBundleDisplayName</key><string>Walnut</string>
+  <key>CFBundleName</key><string>Flo</string>
+  <key>CFBundleDisplayName</key><string>Flo</string>
   <key>CFBundleIdentifier</key><string>$LABEL</string>
-  <key>CFBundleExecutable</key><string>walnut</string>
-  <key>CFBundleIconFile</key><string>walnut</string>
+  <key>CFBundleExecutable</key><string>flo</string>
+  <key>CFBundleIconFile</key><string>flo</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>1.1.3</string>
   <key>NSHighResolutionCapable</key><true/>
   <!-- menu bar utility: live in the status bar, not the Dock -->
   <key>LSUIElement</key><true/>
-  <!-- shown in the macOS prompt when Walnut first records -->
+  <!-- shown in the macOS prompt when Flo first records -->
   <key>NSMicrophoneUsageDescription</key>
-  <string>Walnut transcribes your speech on this Mac. Audio never leaves it.</string>
+  <string>Flo transcribes your speech on this Mac. Audio never leaves it.</string>
 </dict>
 </plist>
 PLIST_EOF
 
-  cat > "$APP/Contents/MacOS/walnut" <<LAUNCH_EOF
+  cat > "$APP/Contents/MacOS/flo" <<LAUNCH_EOF
 #!/bin/bash
 # Thin launcher — the real code lives in the repo below.
 REPO="$REPO"
@@ -142,19 +142,19 @@ if /usr/bin/nc -z 127.0.0.1 "\$PORT" 2>/dev/null; then
 fi
 
 [ -x "\$UV" ] || UV="\$(command -v uv 2>/dev/null)"
-[ -x "\$UV" ] || { /usr/bin/osascript -e 'display alert "Walnut" message "uv not found. Run ./install.sh in the walnut repo."'; exit 1; }
+[ -x "\$UV" ] || { /usr/bin/osascript -e 'display alert "Flo" message "uv not found. Run ./install.sh in the flo repo."'; exit 1; }
 
 # The bundle stores an absolute path. If the repo moved, say so rather than
 # failing with a silent `cd` error.
-if [ ! -f "\$REPO/walnut.py" ]; then
-  /usr/bin/osascript -e 'display alert "Walnut" message "The Walnut folder moved or was deleted. Re-run ./install.sh --app from its new location."'
+if [ ! -f "\$REPO/flo.py" ]; then
+  /usr/bin/osascript -e 'display alert "Flo" message "The Flo folder moved or was deleted. Re-run ./install.sh --app from its new location."'
   exit 1
 fi
 
 cd "\$REPO" || exit 1
-exec "\$UV" run --project "\$REPO" "\$REPO/walnut.py"
+exec "\$UV" run --project "\$REPO" "\$REPO/flo.py"
 LAUNCH_EOF
-  chmod +x "$APP/Contents/MacOS/walnut"
+  chmod +x "$APP/Contents/MacOS/flo"
 
   # Ad-hoc sign so macOS gives the bundle a stable identity for TCC
   # (Accessibility/Microphone). Without this the grant can reset on edits.
@@ -168,11 +168,11 @@ LAUNCH_EOF
 
 [ "$WANT_UNINSTALL" = 1 ] && uninstall
 
-[ "$(uname -s)" = "Darwin" ] || die "Walnut is macOS-only (it uses \`say\` and \`afplay\`)."
+[ "$(uname -s)" = "Darwin" ] || die "Flo is macOS-only (it uses \`say\` and \`afplay\`)."
 
 # ---------------------------------------------------------------- uv
 if ! command -v uv >/dev/null 2>&1; then
-  bold "Installing uv (the Python package manager Walnut uses)…"
+  bold "Installing uv (the Python package manager Flo uses)…"
   curl -LsSf https://astral.sh/uv/install.sh | sh
   # uv lands in one of these depending on the installer version
   export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
@@ -187,24 +187,24 @@ uv sync
 # Apple Silicon gets mlx-whisper (GPU) as well as faster-whisper; Intel Macs
 # get faster-whisper alone. pyproject.toml decides via a platform marker, so
 # there is nothing to choose here.
-bold "Checking what Walnut found on this Mac…"
+bold "Checking what Flo found on this Mac…"
 # --doctor exits 1 when Accessibility isn't granted yet, which is the normal
 # state during a first install. Report it, don't abort on it.
-uv run walnut.py --doctor || true
+uv run flo.py --doctor || true
 
 # ---------------------------------------------------------------- self-test
 bold "Running the self-test."
 bold "The first run downloads the speech model — about 1.6 GB on Apple Silicon,"
 bold "460 MB on Intel. It happens once, and it is cached for good."
-if uv run walnut.py --test; then
+if uv run flo.py --test; then
   bold "Self-test passed."
 else
-  die "Self-test failed. Run \`uv run walnut.py --doctor\` and check the output above."
+  die "Self-test failed. Run \`uv run flo.py --doctor\` and check the output above."
 fi
 
 UV_BIN="$(command -v uv)"
 
-# ---------------------------------------------------------------- Walnut.app
+# ---------------------------------------------------------------- Flo.app
 [ "$WANT_APP" = 1 ] && build_app "$UV_BIN"
 
 # ---------------------------------------------------------------- login item
@@ -227,29 +227,29 @@ if [ "$WANT_LOGIN" = 1 ]; then
     <string>$UV_BIN</string>
     <string>run</string>
     <string>--project</string><string>$REPO</string>
-    <string>$REPO/walnut.py</string>
+    <string>$REPO/flo.py</string>
   </array>
   <key>WorkingDirectory</key><string>$REPO</string>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
-  <key>StandardOutPath</key><string>/tmp/walnut.log</string>
-  <key>StandardErrorPath</key><string>/tmp/walnut.log</string>
+  <key>StandardOutPath</key><string>/tmp/flo.log</string>
+  <key>StandardErrorPath</key><string>/tmp/flo.log</string>
 </dict>
 </plist>
 PLIST_EOF
   launchctl unload "$PLIST" 2>/dev/null || true
   launchctl load "$PLIST"
-  bold "Walnut will start at login. Logs: /tmp/walnut.log"
+  bold "Flo will start at login. Logs: /tmp/flo.log"
 fi
 
 cat <<'DONE'
 
 ──────────────────────────────────────────────────────────────
-Walnut is installed.  Start it with:
+Flo is installed.  Start it with:
 
-    uv run walnut.py
+    uv run flo.py
 
-Then grant macOS permissions ONCE (Walnut cannot do this for you):
+Then grant macOS permissions ONCE (Flo cannot do this for you):
 
   1. Accessibility     System Settings → Privacy & Security →
                        Accessibility → add your Terminal
@@ -257,7 +257,7 @@ Then grant macOS permissions ONCE (Walnut cannot do this for you):
   2. Microphone        macOS asks the first time you dictate → Allow
   3. Input Monitoring  only if hotkeys still don't fire
 
-Restart Walnut after granting Accessibility.
+Restart Flo after granting Accessibility.
 
   ⌃⌥S      narrate the selected text in any app
   ⌃⌥Space  toggle dictation into the frontmost app

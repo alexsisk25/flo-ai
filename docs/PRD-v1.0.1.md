@@ -1,4 +1,4 @@
-# Walnut v1.0.1 — The first-run path must actually run
+# Flo v1.0.1 — The first-run path must actually run
 
 **Status:** shipped (v1.0.1)
 **Author:** Brandon Jeppson
@@ -26,7 +26,7 @@ self.menu.insert(0, rumps.MenuItem("⚠️  Grant Accessibility Permission", ...
 
 `rumps.Menu` subclasses `OrderedDict`. It has `add`, `insert_before`, and
 `insert_after`. It has no `insert`. The call raises `AttributeError` inside
-`WalnutApp.__init__`, the process dies, and launchd's `KeepAlive` respawns it
+`FloApp.__init__`, the process dies, and launchd's `KeepAlive` respawns it
 into an infinite crash loop.
 
 The branch is guarded by `if not accessibility_trusted()`. That is true for
@@ -65,7 +65,7 @@ stranger's machine is in. Fixing the line without fixing that is theatre.
 
 | # | Criterion | Verified by |
 |---|---|---|
-| 1 | `WalnutApp` constructs with Accessibility denied | integration test, no mocks of our own code |
+| 1 | `FloApp` constructs with Accessibility denied | integration test, no mocks of our own code |
 | 2 | The warning menu item is present, first, and clickable | test asserts title + callback |
 | 3 | With permission granted, no warning item appears | test asserts absence |
 | 4 | Every menu callback names a real method | test resolves each handler |
@@ -91,7 +91,7 @@ separators. Anything unconfirmed gets removed or verified.
 `request_accessibility()` neutered (it shows a system modal), an empty database,
 `model_state="loading"`. Tests that assert what a stranger sees.
 
-**P0.4 — Integration test.** Construct the real `WalnutApp` under `first_run`
+**P0.4 — Integration test.** Construct the real `FloApp` under `first_run`
 on a free port. This is the test that would have caught the bug. It must not
 mock `rumps`, or it proves nothing.
 
@@ -102,7 +102,7 @@ source. Cheap, specific, and it pins the exact mistake.
 
 ## 7. Risks
 
-- **Constructing `WalnutApp` in a test** starts a Flask thread, a hotkey
+- **Constructing `FloApp` in a test** starts a Flask thread, a hotkey
   listener, and an `Overlay` that talks to AppKit. If AppKit misbehaves
   headlessly, fall back to testing `build_menu` plus a narrower construction
   test — but say so, rather than quietly weakening the check.

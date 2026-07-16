@@ -7,7 +7,7 @@ ambiguity the top two candidates are spoken back as a question -- never
 guessed. Anything needing back-and-forth gets a spoken "this needs a real
 session".
 
-Standard library only (urllib); no new walnut dependencies.
+Standard library only (urllib); no new flo dependencies.
 """
 
 import json

@@ -1,4 +1,4 @@
-"""Walnut core: narration, dictation, vocabulary, and global hotkeys.
+"""Flo core: narration, dictation, vocabulary, and global hotkeys.
 
 All settings/vocabulary are read from the SQLite store at time of use, so
 edits made in the web UI apply immediately — no restart needed (except for
@@ -103,7 +103,7 @@ class Core:
         self.command_next = False  # route the next transcript to on_command
 
     # ------------------------------------------------------------ audio out
-    # Two ways Walnut makes noise: `say` (narration) and `afplay` (replaying a
+    # Two ways Flo makes noise: `say` (narration) and `afplay` (replaying a
     # dictation recording). Both are held so the dashboard can stop them.
 
     def speaking(self) -> bool:
@@ -235,6 +235,44 @@ class Core:
         finally:
             self.lock.release()
 
+    # ------------------------------------------------ push-to-talk dictation
+    # Hold a key to record, release to type. Unlike toggle_dictate, start and
+    # stop are separate events driven by the key's press and release.
+
+    def ptt_start(self) -> None:
+        """Begin a push-to-talk recording. Ignored if a dictation is in flight."""
+        if not self.lock.acquire(blocking=False):
+            log("Still working on the last dictation — ignoring.")
+            return
+        try:
+            if not self.recording():
+                self._start_recording()
+        finally:
+            self.lock.release()
+
+    def ptt_stop(self) -> None:
+        """End a push-to-talk recording and type the transcript. Blocks (runs in
+        its own thread) until any in-flight start or transcription completes."""
+        with self.lock:
+            if self.recording():
+                self._stop_and_type()
+
+    def ptt_cancel(self) -> None:
+        """Abort the current recording without transcribing — used when the key
+        turned out to be part of a chord (e.g. Right Option + S to narrate)."""
+        with self.lock:
+            if not self.recording():
+                return
+            try:
+                self.stream.stop()
+                self.stream.close()
+            except Exception as e:
+                log(f"Error closing the microphone: {e}")
+            self.stream = None
+            self.frames = []
+            self.command_next = False
+            self.on_state("idle")
+
     def _start_recording(self) -> None:
         import sounddevice as sd
 
@@ -265,7 +303,7 @@ class Core:
             stream = open_stream()
         except Exception as first:
             # PortAudio enumerates audio devices once, when it initialises. If
-            # the default input changed since Walnut started — headphones in, a
+            # the default input changed since Flo started — headphones in, a
             # Bluetooth mic, a meeting grabbing the device — those cached
             # indices go stale and EVERY open fails with a bare internal error.
             # The process is then dead to dictation until it restarts, which is
@@ -372,11 +410,27 @@ class Core:
 
 
 class HotkeyManager:
-    """Owns the pynput GlobalHotKeys listener; can reload after key changes."""
+    """Global hotkeys.
+
+    Narrate and the (dormant) console command are ordinary combo hotkeys via
+    pynput's GlobalHotKeys, re-bindable from the dashboard. Dictation is
+    different: it is PUSH-TO-TALK on the Right Option key — hold to record,
+    release to type — driven by a raw key listener because a held modifier can't
+    be a GlobalHotKeys combo. A Right Option chord (e.g. Right Option + S to
+    narrate) cancels the nascent recording so the two never collide.
+    """
+
+    DICTATE_LABEL = "Right Option (hold)"
+    _DEBOUNCE = 0.12   # seconds to hold before recording; lets a chord cancel first
 
     def __init__(self, core: Core):
         self.core = core
-        self.listener = None
+        self.listener = None      # GlobalHotKeys: narrate + command
+        self.ptt = None           # raw Listener: push-to-talk dictation
+        self._alt_down = False
+        self._chord = False
+        self._dictating = False
+        self._timer = None
 
     def start(self) -> None:
         """Bind the hotkeys. Never raises: an unusable combo falls back to the
@@ -387,54 +441,102 @@ class HotkeyManager:
         self.stop()
         # get_valid() heals a database holding a combo pynput cannot parse
         speak = store.get_valid("hotkey_speak")
-        dictate = store.get_valid("hotkey_dictate")
         command = store.get_valid("hotkey_command")
 
         def on_speak():
             threading.Thread(target=self.core.toggle_speak, daemon=True).start()
-
-        def on_dictate():
-            threading.Thread(target=self.core.toggle_dictate, daemon=True).start()
 
         def on_command():
             threading.Thread(target=self.core.toggle_command, daemon=True).start()
 
         try:
             self.listener = keyboard.GlobalHotKeys({speak: on_speak,
-                                                    dictate: on_dictate,
                                                     command: on_command})
             self.listener.start()
-            # pynput binds happily without Accessibility and then never fires.
-            # Saying "Hotkeys active" here would be a lie, and it was the single
-            # most common way Walnut appeared broken to a new user.
-            if not permissions.accessibility_trusted():
-                log(f"Hotkeys registered ({speak}, {dictate}, {command}) but "
-                    f"they will NOT fire: Walnut has no Accessibility permission.")
-                log("Fix: System Settings → Privacy & Security → Accessibility, "
-                    "add Walnut (or your terminal), then restart Walnut.")
-                return
         except Exception as e:
             # e.g. the combos collide, or macOS refuses the tap
             self.listener = None
-            log(f"Could not bind hotkeys ({speak}, {dictate}, {command}): {e}")
-            if (speak, dictate, command) == (store.DEFAULTS["hotkey_speak"],
-                                             store.DEFAULTS["hotkey_dictate"],
-                                             store.DEFAULTS["hotkey_command"]):
+            log(f"Could not bind hotkeys ({speak}, {command}): {e}")
+            if (speak, command) == (store.DEFAULTS["hotkey_speak"],
+                                    store.DEFAULTS["hotkey_command"]):
                 log("Defaults failed too — check Accessibility permission.")
                 return
             log("Falling back to the default hotkeys.")
             store.set_setting("hotkey_speak", store.DEFAULTS["hotkey_speak"])
-            store.set_setting("hotkey_dictate", store.DEFAULTS["hotkey_dictate"])
             store.set_setting("hotkey_command", store.DEFAULTS["hotkey_command"])
             self.start()
             return
-        log(f"Hotkeys active: {speak} (narrate), {dictate} (dictate), "
-            f"{command} (console command)")
+
+        # Push-to-talk dictation on Right Option. Isolated so a failure here can't
+        # take the combo hotkeys (or the process) down with it.
+        try:
+            self._start_ptt(keyboard)
+        except Exception as e:
+            log(f"Push-to-talk listener failed to start: {e}")
+
+        # pynput binds happily without Accessibility and then never fires. Saying
+        # "Hotkeys active" here would be a lie, and it was the single most common
+        # way this app appeared broken to a new user.
+        if not permissions.accessibility_trusted():
+            log(f"Hotkeys registered ({speak} narrate, {self.DICTATE_LABEL} "
+                f"dictate, {command} command) but they will NOT fire: Flo has no "
+                f"Accessibility permission.")
+            log("Fix: System Settings → Privacy & Security → Accessibility, "
+                "add Flo (or your terminal), then restart Flo.")
+            return
+        log(f"Hotkeys active: {speak} (narrate), {self.DICTATE_LABEL} "
+            f"(dictate, push-to-talk), {command} (console command)")
+
+    def _start_ptt(self, keyboard) -> None:
+        Key = keyboard.Key
+
+        def on_press(key):
+            if key == Key.alt_r:
+                if not self._alt_down:
+                    self._alt_down = True
+                    self._chord = False
+                    self._timer = threading.Timer(self._DEBOUNCE, self._begin)
+                    self._timer.start()
+            elif self._alt_down and not self._chord:
+                # Right Option + another key = a chord (e.g. narrate), not dictation.
+                self._chord = True
+                if self._timer:
+                    self._timer.cancel()
+                if self._dictating:
+                    self._dictating = False
+                    threading.Thread(target=self.core.ptt_cancel,
+                                     daemon=True).start()
+
+        def on_release(key):
+            if key == Key.alt_r:
+                self._alt_down = False
+                if self._timer:
+                    self._timer.cancel()
+                if self._dictating:
+                    self._dictating = False
+                    threading.Thread(target=self.core.ptt_stop,
+                                     daemon=True).start()
+                self._chord = False
+
+        self.ptt = keyboard.Listener(on_press=on_press, on_release=on_release)
+        self.ptt.start()
+
+    def _begin(self) -> None:
+        """Fires once Right Option has been held past the debounce with no chord."""
+        if self._alt_down and not self._chord:
+            self._dictating = True
+            threading.Thread(target=self.core.ptt_start, daemon=True).start()
 
     def stop(self) -> None:
+        if self._timer:
+            self._timer.cancel()
+            self._timer = None
         if self.listener:
             self.listener.stop()
             self.listener = None
+        if self.ptt:
+            self.ptt.stop()
+            self.ptt = None
 
     def reload(self) -> None:
         self.start()

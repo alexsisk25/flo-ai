@@ -1,4 +1,4 @@
-"""Walnut menu bar app — ties together hotkeys, dashboard server, and menus."""
+"""Flo menu bar app — ties together hotkeys, dashboard server, and menus."""
 
 import threading
 import webbrowser
@@ -14,9 +14,9 @@ import server
 import store
 
 STATIC = Path(__file__).resolve().parent / "static"
-ICON_IDLE = str(STATIC / "squirrel.png")
-ICON_REC = str(STATIC / "squirrel-rec.png")
-ICON_BUSY = str(STATIC / "squirrel-busy.png")
+ICON_IDLE = str(STATIC / "flo.png")
+ICON_REC = str(STATIC / "flo-rec.png")
+ICON_BUSY = str(STATIC / "flo-busy.png")
 
 
 def build_menu(trusted: bool, speak: str, dictate: str, command: str,
@@ -40,7 +40,7 @@ def build_menu(trusted: bool, speak: str, dictate: str, command: str,
                                  callback=handlers["fix_permissions"]),
                   None]
     items += [
-        rumps.MenuItem("Open Walnut Dashboard",
+        rumps.MenuItem("Open Flo Dashboard",
                        callback=handlers["open_dashboard"]),
         None,
         rumps.MenuItem(f"Start/Stop Dictation   {pretty(dictate)}",
@@ -55,10 +55,10 @@ def build_menu(trusted: bool, speak: str, dictate: str, command: str,
     return items
 
 
-class WalnutApp(rumps.App):
+class FloApp(rumps.App):
     def __init__(self):
-        super().__init__("Walnut", icon=ICON_IDLE, template=True,
-                         quit_button="Quit Walnut")
+        super().__init__("Flo", icon=ICON_IDLE, template=True,
+                         quit_button="Quit Flo")
         permissions.request_microphone()   # triggers TCC prompt for mic on first run
         store.init()
         # Apply the cap to whatever accumulated while an older build ran.
@@ -76,10 +76,10 @@ class WalnutApp(rumps.App):
         server.HOTKEYS = self.hotkeys
         self.port = int(store.get_valid("port"))
 
-        # Two Walnuts fight over the port AND the hotkeys, and the loser's
+        # Two Flos fight over the port AND the hotkeys, and the loser's
         # symptoms are baffling. Refuse to be the second one.
         if server.port_in_use(self.port):
-            core.log(f"Walnut is already running at http://127.0.0.1:{self.port}")
+            core.log(f"Flo is already running at http://127.0.0.1:{self.port}")
             webbrowser.open(f"http://127.0.0.1:{self.port}")
             raise SystemExit(0)
 
@@ -104,7 +104,7 @@ class WalnutApp(rumps.App):
         threading.Thread(target=self._guarded, args=(server.run, self.port),
                          daemon=True).start()
         self.hotkeys.start()   # never raises; falls back to defaults
-        core.log(f"Walnut menu bar app running — dashboard at "
+        core.log(f"Flo menu bar app running — dashboard at "
                  f"http://127.0.0.1:{self.port}")
 
     @staticmethod
@@ -112,7 +112,7 @@ class WalnutApp(rumps.App):
         """Run a background task so its failure is logged, not swallowed.
 
         A daemon thread that raises just disappears; the model would fail to
-        load or the dashboard would never bind and Walnut looked fine.
+        load or the dashboard would never bind and Flo looked fine.
         """
         try:
             fn(*args)
@@ -136,10 +136,10 @@ class WalnutApp(rumps.App):
     def fix_permissions(self, _):
         permissions.open_accessibility_settings()
         rumps.alert(
-            title="Grant Accessibility to Walnut",
-            message="Add Walnut (or the terminal you launched it from) under "
+            title="Grant Accessibility to Flo",
+            message="Add Flo (or the terminal you launched it from) under "
                     "Privacy & Security → Accessibility, then quit and reopen "
-                    "Walnut.\n\nWithout it, the hotkeys register but never fire.")
+                    "Flo.\n\nWithout it, the hotkeys register but never fire.")
 
     def menu_dictate(self, _):
         threading.Thread(target=self.core.toggle_dictate, daemon=True).start()
@@ -165,4 +165,4 @@ def pretty(hotkey: str) -> str:
 
 
 if __name__ == "__main__":
-    WalnutApp().run()
+    FloApp().run()

@@ -1,7 +1,7 @@
 """Narration voice detection.
 
 macOS hides its good voices behind a download almost nobody knows about, so
-users conclude local narration simply sounds like a robot. Walnut notices and
+users conclude local narration simply sounds like a robot. Flo notices and
 says so. It cannot install them — they are Apple-licensed with no supported
 programmatic installer — and Siri's voices never appear in `say -v '?'` at all.
 """
@@ -139,7 +139,7 @@ def test_falls_back_to_any_good_voice_when_language_has_none(say):
 def test_a_selected_voice_that_is_uninstalled_is_not_reported_as_fine(say):
     """`say` does not error on an unknown voice — it silently substitutes the
     system default (verified: exit 0, byte-identical output). Judging quality
-    from the stored NAME meant Walnut reported voice_ok while the user heard
+    from the stored NAME meant Flo reported voice_ok while the user heard
     the robot."""
     say(SAY_OUTPUT)
     s = voices.status(selected="Lee (Premium)")   # never installed here

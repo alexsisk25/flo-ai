@@ -1,4 +1,4 @@
-"""SQLite storage for Walnut: settings, dictionary, snippets, history, stats."""
+"""SQLite storage for Flo: settings, dictionary, snippets, history, stats."""
 
 import contextlib
 import re
@@ -11,7 +11,7 @@ from pathlib import Path
 import stt as stt_backend
 
 HERE = Path(__file__).resolve().parent
-DB_PATH = HERE / "walnut.db"
+DB_PATH = HERE / "flo.db"
 RECORDINGS = HERE / "recordings"
 
 DEFAULTS = {
@@ -26,9 +26,11 @@ DEFAULTS = {
     # How many dictation .wav files to keep on disk. Transcripts are kept
     # forever and cost nothing; the audio is what fills the drive. 0 = none.
     "recordings_keep": "3",
-    "hotkey_speak": "<ctrl>+<alt>+s",
-    # NOT ⌃⌥Space: macOS binds that to "Select next source in Input menu" for
-    # anyone with two keyboard layouts. Existing databases keep their own value.
+    # Narrate = Right Option + S. (<alt>+s matches either Option key.)
+    "hotkey_speak": "<alt>+s",
+    # Dictation is PUSH-TO-TALK on the Right Option key, held down — not a combo,
+    # so this stored value is unused by the listener. Kept valid for the dashboard
+    # and to avoid ⌃⌥Space (macOS's "Select next input source").
     "hotkey_dictate": "<ctrl>+<alt>+d",
     "hotkey_command": "<ctrl>+<alt>+c",
     "console_url": "http://127.0.0.1:4173",
@@ -106,7 +108,7 @@ def _seed_from_config() -> None:
         settings["tts_voice"] = str(tts_c.get("voice", ""))
     if tts_c.get("rate"):
         settings["tts_rate"] = str(tts_c["rate"])
-    # An empty model in config.toml means "let Walnut choose for this Mac".
+    # An empty model in config.toml means "let Flo choose for this Mac".
     if stt_c.get("model"):
         settings["stt_model"] = stt_backend.canonical(stt_c["model"])
     if stt_c.get("backend"):
@@ -214,7 +216,7 @@ def get_valid(key: str) -> str:
     """get(), but a corrupt/legacy stored value falls back to the default.
 
     Read paths that would otherwise crash the app use this: a database carried
-    over from an older Walnut (or hand-edited) must never take the process down.
+    over from an older Flo (or hand-edited) must never take the process down.
     """
     raw = get(key)
     try:

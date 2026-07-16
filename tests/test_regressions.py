@@ -1,4 +1,4 @@
-"""Regression tests. Every test here is a bug Walnut actually shipped.
+"""Regression tests. Every test here is a bug Flo actually shipped.
 
 Run with:  uv run --group dev pytest -q
 """
@@ -116,7 +116,7 @@ def test_unknown_setting_rejected(db):
 
 
 def test_get_valid_heals_a_poisoned_database(db):
-    """A database hand-edited (or written by an older Walnut) must not be able
+    """A database hand-edited (or written by an older Flo) must not be able
     to take the process down on the next launch."""
     db.set_setting("hotkey_speak", "garbage")
     db.set_setting("tts_rate", "fast")
@@ -125,7 +125,7 @@ def test_get_valid_heals_a_poisoned_database(db):
 
 
 def test_hotkey_manager_survives_unparseable_combo(db):
-    """hotkeys.start() ran in WalnutApp.__init__. A bad stored combo raised,
+    """hotkeys.start() ran in FloApp.__init__. A bad stored combo raised,
     the process died, and launchd's KeepAlive respawned it forever."""
     import core
 
@@ -408,7 +408,7 @@ def _install_fake_sd(monkeypatch, fake):
 
 def test_stale_audio_devices_are_rescanned_and_recording_recovers(db, monkeypatch):
     """PortAudio caches the device list at init. Plug in headphones while
-    Walnut runs and every mic open fails with a bare internal error — the
+    Flo runs and every mic open fails with a bare internal error — the
     process is dead to dictation until restart. It must rescan and retry."""
     import core
 

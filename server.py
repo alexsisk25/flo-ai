@@ -1,4 +1,4 @@
-"""Flask API + static UI for the Walnut dashboard."""
+"""Flask API + static UI for the Flo dashboard."""
 
 import logging
 import subprocess
@@ -21,7 +21,7 @@ logging.getLogger("werkzeug").setLevel(logging.ERROR)
 CORE = None
 HOTKEYS = None
 
-# Walnut binds 127.0.0.1, but a page in your browser can still POST to it, and
+# Flo binds 127.0.0.1, but a page in your browser can still POST to it, and
 # DNS rebinding can make an attacker's domain resolve there. Both are defeated
 # by refusing any request whose Host isn't loopback.
 _ALLOWED_HOSTS = {"127.0.0.1", "localhost", "[::1]", "::1"}
@@ -212,7 +212,7 @@ def settings():
 
         # Validate the whole payload before writing any of it. Previously a bad
         # value was persisted and only then interpreted: an unparseable hotkey
-        # left the listener dead and crash-looped Walnut on the next launch.
+        # left the listener dead and crash-looped Flo on the next launch.
         clean, hotkeys_changed = {}, False
         for key in store.DEFAULTS:
             if key in d:
@@ -241,7 +241,7 @@ def settings():
 
 @app.route("/api/system")
 def system():
-    """What hardware Walnut found, and which engine it chose."""
+    """What hardware Flo found, and which engine it chose."""
     info = stt.describe(store.get("stt_backend"))
     info["models"] = stt.catalog(info["backend"])
     return jsonify(info)
@@ -293,7 +293,7 @@ def test_voice():
         d = request.json or {}
         threading.Thread(
             target=CORE.speak,
-            args=(d.get("text", "Walnut here. This is how I sound."), False),
+            args=(d.get("text", "Flo here. This is how I sound."), False),
             daemon=True).start()
     return jsonify({"ok": True})
 

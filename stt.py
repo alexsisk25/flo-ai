@@ -1,13 +1,13 @@
-"""Speech-to-text backends, chosen to fit the Mac Walnut is running on.
+"""Speech-to-text backends, chosen to fit the Mac Flo is running on.
 
-Walnut stores one *canonical* model id (``small.en``, ``large-v3-turbo``) in
-walnut.db. This module translates that id into whatever the active engine
+Flo stores one *canonical* model id (``small.en``, ``large-v3-turbo``) in
+flo.db. This module translates that id into whatever the active engine
 wants, so the same database and the same settings work on any Mac:
 
   Apple Silicon  ->  mlx-whisper, running on the GPU. Several times faster.
   Intel          ->  faster-whisper (CTranslate2), running int8 on the CPU.
 
-Nothing else in Walnut needs to know which engine is in use. Call
+Nothing else in Flo needs to know which engine is in use. Call
 ``transcribe()`` and you get text.
 """
 
@@ -44,7 +44,7 @@ MODELS = [
 ]
 _BY_ID = {m["id"]: m for m in MODELS}
 
-# Walnut used to store raw MLX repo names. Keep old databases working.
+# Flo used to store raw MLX repo names. Keep old databases working.
 _LEGACY = {
     "mlx-community/whisper-large-v3-turbo": "large-v3-turbo",
     "mlx-community/whisper-medium.en-mlx": "medium.en",
@@ -89,7 +89,7 @@ def resolve_backend(preference: str = "auto") -> str:
     usable = available_backends()
     if not usable:
         raise RuntimeError(
-            "No speech backend installed. Run `uv sync` in the Walnut folder.")
+            "No speech backend installed. Run `uv sync` in the Flo folder.")
     if preference in usable:
         return preference
     return usable[0]

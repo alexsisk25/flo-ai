@@ -5,7 +5,7 @@ ships the *ability* to download modern neural ones — Enhanced and Premium —
 free, offline, from System Settings. Almost nobody knows they exist, so almost
 everybody concludes that local text-to-speech sounds like a robot.
 
-Walnut cannot install them: they are Apple-licensed components with no
+Flo cannot install them: they are Apple-licensed components with no
 supported programmatic installer. What it can do is notice, say so, and open
 the right pane. (Siri's voices are walled off from `say` entirely — they never
 appear in `say -v '?'` — so Premium is the ceiling for this code path.)
@@ -118,7 +118,7 @@ def status(selected: str = "", language: str = "en") -> dict:
 
       ok             — a Premium/Enhanced voice is selected AND installed.
       missing        — the selected voice is gone. `say` does not complain: it
-                       silently falls back to the system default, so Walnut
+                       silently falls back to the system default, so Flo
                        would otherwise report "fine" while the user hears the
                        robot. Judging quality from the stored *name* alone was
                        exactly the kind of unearned claim this feature exists
@@ -160,15 +160,15 @@ def status(selected: str = "", language: str = "en") -> dict:
         return {
             "ok": False,
             "reason": "not_selected",
-            "title": "Walnut sounds robotic?",
-            "hint": ("You have high-quality voices installed but Walnut is "
+            "title": "Flo sounds robotic?",
+            "hint": ("You have high-quality voices installed but Flo is "
                      "using a default one. Pick one on the Settings page."),
             "suggestions": suggestions,
         }
     return {
         "ok": False,
         "reason": "none_installed",
-        "title": "Walnut sounds robotic?",
+        "title": "Flo sounds robotic?",
         "hint": _download_hint(),
         "suggestions": [],
     }

@@ -1,5 +1,5 @@
 # local data — personal history, recordings, settings live here
-walnut.db
+flo.db
 recordings/
 .selftest.wav
 *.log
