@@ -35,6 +35,13 @@ DEFAULTS = {
     "hotkey_command": "<ctrl>+<alt>+c",
     "console_url": "http://127.0.0.1:4173",
     "snippets_enabled": "1",
+    # Local LLM cleanup: fix grammar, strip filler, resolve self-corrections.
+    # On by default; empty model = cleanup.DEFAULT_MODEL. Apple Silicon only.
+    "cleanup_enabled": "1",
+    "cleanup_model": "",
+    # Learn from your edits: corrected spellings -> dictionary, recurring style
+    # changes -> preferences fed back into cleanup. Gets smarter over time.
+    "learn_enabled": "1",
     "port": "8765",
 }
 
@@ -47,6 +54,16 @@ CREATE TABLE IF NOT EXISTS replacements (
 CREATE TABLE IF NOT EXISTS snippets (
     id INTEGER PRIMARY KEY, trigger TEXT NOT NULL, expansion TEXT NOT NULL,
     uses INTEGER DEFAULT 0, enabled INTEGER DEFAULT 1);
+-- Learned style preferences, fed back into the cleanup prompt. This is what lets
+-- Flo get smarter over time (not just spellings, like Wispr, but word choice).
+CREATE TABLE IF NOT EXISTS preferences (
+    id INTEGER PRIMARY KEY,
+    kind TEXT NOT NULL,                 -- 'word_swap' | 'phrase_cut'
+    from_text TEXT NOT NULL,
+    to_text TEXT NOT NULL DEFAULT '',
+    freq INTEGER NOT NULL DEFAULT 1,
+    updated REAL NOT NULL,
+    UNIQUE(kind, from_text, to_text));
 CREATE TABLE IF NOT EXISTS history (
     id INTEGER PRIMARY KEY,
     type TEXT NOT NULL,             -- 'dictation' | 'readback'
@@ -191,6 +208,9 @@ VALIDATORS = {
     "stt_backend": _one_of("auto", stt_backend.MLX, stt_backend.FASTER),
     "stt_language": _language,
     "snippets_enabled": _one_of("0", "1"),
+    "cleanup_enabled": _one_of("0", "1"),
+    "cleanup_model": lambda v: v.strip(),
+    "learn_enabled": _one_of("0", "1"),
     "hotkey_speak": _hotkey,
     "hotkey_dictate": _hotkey,
     "hotkey_command": _hotkey,
@@ -296,6 +316,45 @@ def snippets_update(sid: int, trigger: str, expansion: str, enabled: int) -> Non
 def snippets_delete(sid: int) -> None:
     with _conn() as c:
         c.execute("DELETE FROM snippets WHERE id=?", (sid,))
+
+
+# ---- learned preferences (the correction-watcher's style memory) ----
+
+def preferences_learn(kind: str, from_text: str, to_text: str = "") -> None:
+    """Record a learned edit, incrementing frequency if we've seen it before."""
+    with _conn() as c:
+        c.execute(
+            "INSERT INTO preferences(kind, from_text, to_text, freq, updated) "
+            "VALUES (?,?,?,1,?) "
+            "ON CONFLICT(kind, from_text, to_text) DO UPDATE SET "
+            "freq = freq + 1, updated = excluded.updated",
+            (kind, from_text.lower().strip(), to_text.lower().strip(), time.time()))
+
+
+def preferences_top(limit: int = 12) -> list[dict]:
+    with _conn() as c:
+        return [dict(r) for r in c.execute(
+            "SELECT * FROM preferences ORDER BY freq DESC, updated DESC LIMIT ?", (limit,))]
+
+
+def preferences_all() -> list[dict]:
+    with _conn() as c:
+        return [dict(r) for r in c.execute(
+            "SELECT * FROM preferences ORDER BY freq DESC, updated DESC")]
+
+
+def preferences_delete(pid: int) -> None:
+    with _conn() as c:
+        c.execute("DELETE FROM preferences WHERE id=?", (pid,))
+
+
+def preference_instruction(pref: dict) -> str:
+    """A one-line instruction for the cleanup prompt."""
+    if pref["kind"] == "word_swap":
+        return f'Prefer "{pref["to_text"]}" over "{pref["from_text"]}".'
+    if pref["kind"] == "phrase_cut":
+        return f'Remove the phrase "{pref["from_text"]}" when it appears.'
+    return f'{pref["from_text"]} -> {pref["to_text"]}'
 
 
 def snippets_hit(sid: int) -> None:

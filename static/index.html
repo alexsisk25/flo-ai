@@ -591,6 +591,26 @@ svg.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;strok
   </div>
 
   <div class="card section-gap">
+    <h3 class="serif">AI writing — local &amp; free</h3>
+    <div class="field">
+      <label><input type="checkbox" id="set-cleanup" style="margin-right:8px;vertical-align:middle">Clean up as I speak</label>
+      <span class="dim" style="font-size:12px;display:block;margin-top:4px">Fixes grammar and
+        punctuation, removes filler words (um, uh, you know), and resolves spoken
+        self-corrections — all on your GPU via a small local model, no cloud. First
+        run downloads it (~1.7&nbsp;GB), once. Until it's ready, dictation types the
+        raw transcript.</span>
+      <div id="cleanup-note" class="dim" style="font-size:12px;margin-top:4px"></div>
+    </div>
+    <div class="field">
+      <label><input type="checkbox" id="set-learn" style="margin-right:8px;vertical-align:middle">Learn from my edits</label>
+      <span class="dim" style="font-size:12px;display:block;margin-top:4px">When you fix what
+        Flo typed, it quietly learns — corrected spellings join your dictionary, and
+        recurring style changes shape future cleanups. This is how Flo gets better the
+        more you use it.</span>
+    </div>
+  </div>
+
+  <div class="card section-gap">
     <h3 class="serif">You</h3>
     <div class="field"><label>Your typing speed (WPM) — used to compute Time Saved</label>
       <input id="set-wpm" type="number" min="10" max="200">
@@ -1116,6 +1136,13 @@ async function loadSettings(){
   $('#set-lang').value = s.stt_language;
   $('#set-keep').value = s.recordings_keep;
   $('#set-wpm').value = s.typing_wpm;
+  $('#set-cleanup').checked = s.cleanup_enabled === '1';
+  $('#set-learn').checked = s.learn_enabled === '1';
+  const cs = st.cleanup_state;
+  $('#cleanup-note').textContent = !cs || cs === 'idle' ? ''
+    : cs === 'ready' ? 'Cleanup model loaded and active.'
+    : cs === 'loading' ? 'Cleanup model is downloading/loading…'
+    : cs === 'error' ? 'Cleanup model failed to load — using raw transcripts.' : '';
 }
 $('#set-rate').addEventListener('input', e => $('#rate-label').textContent = e.target.value);
 $('#set-model').addEventListener('change', () => paintModelNote(window.SYS));
@@ -1125,7 +1152,9 @@ async function saveSettings(){
     stt_model: $('#set-model').value, stt_backend: $('#set-backend').value,
     stt_language: $('#set-lang').value.trim(),
     recordings_keep: $('#set-keep').value,
-    typing_wpm: $('#set-wpm').value})});
+    typing_wpm: $('#set-wpm').value,
+    cleanup_enabled: $('#set-cleanup').checked ? '1' : '0',
+    learn_enabled: $('#set-learn').checked ? '1' : '0'})});
   window.TYPING_WPM = +$('#set-wpm').value;
   // Switching engine changes which models are sensible; re-read the server.
   window.SYS = await api('/api/system');

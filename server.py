@@ -7,6 +7,7 @@ from pathlib import Path
 
 from flask import Flask, jsonify, request, send_from_directory
 
+import cleanup
 import permissions
 import stt
 import store
@@ -258,6 +259,7 @@ def status():
         "model_state": CORE.model_state if CORE else "unknown",
         "model_error": CORE.model_error if CORE else None,
         "model": stt.canonical(store.get("stt_model")),
+        "cleanup_state": cleanup.state(),
         # Not an error — nobody knows macOS hides good voices behind a
         # download, so they conclude local narration just sounds like this.
         "voice_ok": voice["ok"],

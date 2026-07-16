@@ -12,6 +12,8 @@ import time
 
 import numpy as np
 
+import cleanup
+import learning
 import permissions
 import stt
 import store
@@ -101,6 +103,7 @@ class Core:
         self.model_error = None
         self.on_command = lambda text: None  # console voice command transcript
         self.command_next = False  # route the next transcript to on_command
+        self.watcher = learning.CorrectionWatcher()  # learns from your edits
 
     # ------------------------------------------------------------ audio out
     # Two ways Flo makes noise: `say` (narration) and `afplay` (replaying a
@@ -361,6 +364,17 @@ class Core:
                 play_sound(SOUND_ERROR)
                 return
             text, used_snippet = Vocabulary.apply(text)
+            # Local AI cleanup (grammar, filler, self-corrections). Snippets are
+            # canned and commands are raw match phrases, so skip both.
+            if (text and not used_snippet and not was_command
+                    and cleanup.enabled() and cleanup.state() == "ready"):
+                terms = [w["word"] for w in store.words_list()]
+                rules = [store.preference_instruction(p)
+                         for p in store.preferences_top()]
+                cleaned = cleanup.clean(text, terms=terms, rules=rules)
+                if cleaned != text:
+                    log(f"cleanup: {text!r} → {cleaned!r}")
+                text = cleaned
             log(f"({time.time() - t0:.1f}s) → {text!r}")
             if not text:
                 return
@@ -375,6 +389,8 @@ class Core:
                               snippet=used_snippet, audio_path=audio_path)
             store.prune_recordings()   # keep only the newest few .wav files
             self._type(text + " ")
+            # Watch the field for edits and learn from them (best-effort).
+            self.watcher.watch(text)
         finally:
             self.on_state("idle")
 

@@ -6,6 +6,7 @@ from pathlib import Path
 
 import rumps
 
+import cleanup
 import console_bridge
 import core
 import overlay
@@ -100,6 +101,10 @@ class FloApp(rumps.App):
             permissions.request_accessibility()   # shows the system dialog once
 
         threading.Thread(target=self._guarded, args=(self.core.warm_up,),
+                         daemon=True).start()
+        # Local AI cleanup model loads in the background too (downloads on first
+        # run). Until it's ready, dictation types the raw transcript.
+        threading.Thread(target=self._guarded, args=(cleanup.warm_up,),
                          daemon=True).start()
         threading.Thread(target=self._guarded, args=(server.run, self.port),
                          daemon=True).start()
