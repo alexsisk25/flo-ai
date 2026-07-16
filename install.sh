@@ -259,8 +259,8 @@ Then grant macOS permissions ONCE (Flo cannot do this for you):
 
 Restart Flo after granting Accessibility.
 
-  ⌃⌥S      narrate the selected text in any app
-  ⌃⌥Space  toggle dictation into the frontmost app
+  Hold Right Option   push-to-talk: hold, speak, release — types into any app
+  Right Option + S    narrate the selected text in any app
   Dashboard → http://127.0.0.1:8765
 ──────────────────────────────────────────────────────────────
 DONE

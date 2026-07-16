@@ -8,14 +8,14 @@
 <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
 <style>
 :root{
-  /* Arts & Crafts parchment palette — flo ink / forest / rust / ochre */
-  --bg:#ece4d0; --side:#e3d9c0; --card:#f7f2e4; --card2:#efe8d5;
-  --border:#c8bb9b; --border-soft:#d9cfb4;
-  --text:#2a241a; --muted:#675e4c; --dim:#6f664f;
-  --amber:#3d6b47; --amber-dim:#2f5537; --amber-bg:#e3e7d0;   /* forest green (primary) */
-  --green:#3d6b47; --red:#8f3f22;                              /* forest / rust */
-  --clay:#8f3f22; --ochre:#87621f; --rust-bg:#f0e0cf;   /* ochre picked for AA (4.94:1) */
-  --ink:#fbf7ec;                                               /* inset/well fill */
+  /* Flo — flowing teal → indigo on cool light */
+  --bg:#e9f0f4; --side:#dee9ef; --card:#ffffff; --card2:#f0f6f9;
+  --border:#c6d6df; --border-soft:#dae6ed;
+  --text:#0f242d; --muted:#485b66; --dim:#5b6e79;
+  --amber:#0a7d99; --amber-dim:#075d72; --amber-bg:#d2ecf3;   /* teal (primary) */
+  --green:#0d9488; --red:#d1495b;                             /* teal / rose */
+  --clay:#0891b2; --ochre:#6366f1; --rust-bg:#e7e8fd;   /* cyan / indigo accents */
+  --ink:#f6fbfd;                                              /* inset/well fill */
   --serif:"Palatino","Palatino Linotype","Book Antiqua",Georgia,serif;
   --bodyfont:"Charter","Bitstream Charter",Georgia,serif;
   --mono:ui-monospace,"SF Mono",Menlo,monospace;
@@ -65,9 +65,9 @@ button{font:600 12.5px/1.3 var(--bodyfont);letter-spacing:.07em;text-transform:u
 button:hover{border-color:var(--amber-dim)}
 button:active{transform:translateY(1px)}
 button:disabled{opacity:.45;cursor:not-allowed;transform:none}
-button.primary{background:var(--amber);border-color:var(--amber-dim);color:#f7f2e4}
+button.primary{background:var(--amber);border-color:var(--amber-dim);color:#ffffff}
 button.primary:hover{background:var(--amber-dim)}
-button.danger{background:var(--red);border-color:#6f2f16;color:#f7f2e4}
+button.danger{background:var(--red);border-color:#a83a4b;color:#ffffff}
 button.ghost{background:transparent}
 input,select,textarea{font:inherit;background:var(--ink);border:var(--line) solid var(--border);
   color:var(--text);border-radius:var(--radius);padding:9px 12px;
@@ -91,10 +91,10 @@ svg.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;strok
   padding:var(--s5) var(--s3) var(--s4);display:flex;flex-direction:column;
   position:fixed;top:0;bottom:0;left:0;z-index:2;overflow-y:auto}
 #side .brand{text-align:center;margin-bottom:var(--s5)}
-#side .mark{width:66px;height:66px;display:block;margin:0 auto var(--s3);border:var(--line) solid var(--border);
-  outline:1px solid var(--border-soft);outline-offset:-4px;border-radius:var(--radius);padding:3px;
-  background:var(--card);filter:sepia(.08) contrast(1.02)}
-#side .logo{font-family:var(--serif);font-size:17px;letter-spacing:.3em;text-transform:uppercase;padding-left:.3em}
+#side .mark{width:60px;height:60px;display:block;margin:0 auto var(--s2);border-radius:15px;
+  box-shadow:0 4px 14px rgba(8,145,178,.28)}
+#side .logo{font-family:"Snell Roundhand","Apple Chancery",cursive;font-weight:700;
+  font-size:40px;line-height:1;color:var(--amber);padding:2px 0 0}
 #side .powered{color:var(--dim);font-size:var(--t-sm);font-style:italic;margin-top:2px}
 #side nav{display:flex;flex-direction:column;gap:2px}
 #side nav a{display:flex;align-items:center;gap:var(--s3);color:var(--muted);text-decoration:none;
@@ -106,7 +106,7 @@ svg.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;strok
 /* a struck rule on the active item — the letterpress version of a selection bar */
 #side nav a.active::before{content:"";position:absolute;left:-1px;top:6px;bottom:6px;
   width:3px;background:var(--amber);border-radius:var(--radius)}
-#side nav a:hover:not(.active){background:#dcd1b4;color:var(--text)}
+#side nav a:hover:not(.active){background:var(--card2);color:var(--text)}
 #side nav a:hover:not(.active) svg{color:var(--muted)}
 #side .foot{margin-top:auto;padding-top:var(--s4);color:var(--dim);font-size:var(--t-sm);text-align:center;font-style:italic;line-height:1.5}
 
@@ -160,7 +160,7 @@ svg.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;strok
 @keyframes spin{to{transform:rotate(360deg)}}
 
 /* the one hero figure on the page — it should dominate, nothing else competes */
-.hero{background:#e8ecd4;border-color:#b0ba8e}
+.hero{background:var(--amber-bg);border-color:#a9d4e2}
 .eyebrow{font-size:var(--t-sm);gap:7px}
 .hero-figure{font-family:var(--serif);font-size:var(--t-hero);font-weight:700;line-height:1.05;margin:var(--s1) 0 2px}
 .hero-caption{font-size:var(--t-sm)}
@@ -178,7 +178,7 @@ svg.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;strok
 .banner.gold{background:var(--card)}
 .banner h4{color:var(--amber-dim);font-size:16px}
 .banner p{color:var(--muted);font-size:13.5px;margin-top:var(--s1);max-width:64ch}
-.kbd{background:#f3edda;border:1px solid var(--border);border-radius:var(--radius);padding:2px 8px;
+.kbd{background:#e6f1f6;border:1px solid var(--border);border-radius:var(--radius);padding:2px 8px;
   font-size:12px;color:var(--text);font-family:var(--mono)}
 .muted{color:var(--muted)} .dim{color:var(--dim)} .amber{color:var(--amber-dim)} .green{color:var(--green)}
 .section-gap{margin-top:var(--s4)}
@@ -192,12 +192,12 @@ svg.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;strok
 .entry .body{flex:1;min-width:0}
 .entry .transcript{background:var(--ink);border:1px solid var(--border-soft);border-radius:var(--radius);
   padding:var(--s3) var(--s4);margin-top:var(--s3);max-height:150px;overflow:auto;
-  white-space:pre-wrap;font-size:14.5px;color:#443c2e}
+  white-space:pre-wrap;font-size:14.5px;color:var(--text)}
 .entry .actions{display:flex;flex-direction:column;gap:var(--s2);width:clamp(140px,15vw,168px);flex-shrink:0}
 .entry .actions button{width:100%;font-size:var(--t-xs)}
 /* the Replay button while its clip is audible — mirrors .danger without shouting */
-.entry .actions button.active{background:var(--clay);border-color:#6f2f16;color:#f7f2e4}
-.entry .actions button.active:hover{background:#7c3519}
+.entry .actions button.active{background:var(--clay);border-color:#075d72;color:#ffffff}
+.entry .actions button.active:hover{background:#0e7490}
 
 .list-row{background:var(--card);border:var(--line) solid var(--border);border-radius:var(--radius);
   padding:var(--s3) var(--s4);margin-top:var(--s3);box-shadow:var(--lift)}
@@ -229,7 +229,7 @@ svg.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;strok
 .shortcut-row.recording .keycap{border-color:var(--amber-dim)}
 .hint{font-size:var(--t-sm);color:var(--red);min-height:18px;margin-top:var(--s3)}
 
-#toast{position:fixed;bottom:var(--s5);right:var(--s5);background:var(--amber);color:#f7f2e4;
+#toast{position:fixed;bottom:var(--s5);right:var(--s5);background:var(--amber);color:#ffffff;
   border:var(--line) solid var(--amber-dim);padding:11px 18px;border-radius:var(--radius);
   font-weight:600;letter-spacing:.04em;opacity:0;transition:opacity .25s;pointer-events:none;z-index:3}
 .count-note{color:var(--dim);font-size:12px;margin-top:var(--s2)}
@@ -264,9 +264,8 @@ svg.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;strok
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
     <symbol id="i-acorn" viewBox="0 0 24 24">
-      <path d="M5.5 9.5C5.5 6.5 8 4.5 12 4.5s6.5 2 6.5 5h-13Z"/>
-      <path d="M12 4.5c0-1.5 1-2.3 2-2.5"/>
-      <path d="M6.8 9.5c0 5.3 2.4 9 5.2 10.7 2.8-1.7 5.2-5.4 5.2-10.7"/>
+      <path d="M3 9c3-3 6-3 9 0s6 3 9 0"/>
+      <path d="M3 15c3-3 6-3 9 0s6 3 9 0"/>
     </symbol>
     <symbol id="i-leaf" viewBox="0 0 24 24">
       <path d="M12 3.5C17.5 7 19 13 12 20.5 5 13 6.5 7 12 3.5Z"/><path d="M12 7v10"/>
@@ -321,7 +320,7 @@ svg.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;strok
     <a href="#settings" data-page="settings"><svg class="ic"><use href="#i-gear"/></svg> Settings</a>
   </nav>
   <div class="ornament"><svg class="ic" width="14" height="14"><use href="#i-acorn"/></svg></div>
-  <div class="foot">100% local · $0/mo<br>Nothing leaves the nest.</div>
+  <div class="foot">100% local · $0/mo<br>Nothing leaves your Mac.</div>
 </aside>
 
 <main id="main">
@@ -373,7 +372,7 @@ svg.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;strok
     <div class="hero-ring">
       <svg width="96" height="96" viewBox="0 0 96 96" role="img" aria-labelledby="momentum-label">
         <title id="momentum-label">Momentum for this period</title>
-        <circle cx="48" cy="48" r="42" fill="none" stroke="#d4c9ab" stroke-width="7"/>
+        <circle cx="48" cy="48" r="42" fill="none" stroke="#cfe6ee" stroke-width="7"/>
         <circle id="ringfg" class="ring" cx="48" cy="48" r="42" fill="none" stroke="var(--green)"
           stroke-width="7" stroke-linecap="round" stroke-dasharray="0 264" style="transform-origin:48px 48px"/>
         <text x="48" y="54" text-anchor="middle" fill="var(--text)" font-size="18" font-weight="700" font-family="Palatino,Georgia,serif" id="momentum">0%</text>
