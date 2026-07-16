@@ -308,7 +308,7 @@ svg.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;strok
 
 <aside id="side">
   <div class="brand">
-    <img class="mark" src="/static/apple-touch-icon.png" alt="Flo squirrel">
+    <img class="mark" src="/static/apple-touch-icon.png" alt="Flo">
     <div class="logo">Flo</div>
     <div class="powered">Powered by you</div>
   </div>
@@ -335,7 +335,7 @@ svg.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;strok
   <div class="spread">
     <div>
       <h1 id="greeting">Good afternoon</h1>
-      <div class="sub">Here's what Flo has squirreled away for you</div>
+      <div class="sub">Here's what Flo has saved for you</div>
     </div>
     <div class="row">
       <select id="period">
@@ -357,8 +357,8 @@ svg.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;strok
     <div>
       <h4 style="color:var(--text)">Learn how to use Flo</h4>
       <p>Practice read-aloud first, then dictation and snippets. Watch the menu bar icon while recording.</p>
-      <p style="margin-top:8px">Read aloud <span class="kbd" id="kbd-speak">⌃⌥S</span>
-         &nbsp;·&nbsp; Dictate <span class="kbd" id="kbd-dictate">⌃⌥D</span></p>
+      <p style="margin-top:8px">Read aloud <span class="kbd" id="kbd-speak">⌥S</span>
+         &nbsp;·&nbsp; Dictate <span class="kbd">hold Right Option</span></p>
     </div>
     <button class="x" onclick="dismissGuide()">✕</button>
   </div>
@@ -542,9 +542,8 @@ svg.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;strok
     <div class="shortcut-row" id="row-dictate">
       <div class="icon-sq"><svg class="ic"><use href="#i-mic"/></svg></div>
       <div class="grow"><b>Dictation</b>
-        <div class="desc">Start / stop voice typing into whatever app you're using.</div></div>
-      <div class="keys" id="keys-dictate"></div>
-      <button id="btn-dictate" onclick="startRecord('dictate')">Change</button>
+        <div class="desc">Push-to-talk: hold the key, speak, release to type. Fixed to Right Option.</div></div>
+      <div class="keys"><span class="keycap">⌥ hold Right Option</span></div>
     </div>
   </div>
   <div class="hint" id="hk-hint"></div>
@@ -757,7 +756,6 @@ async function loadDashboard(){
   if (seq !== DASH_SEQ) return;   // a newer period/refresh already answered
   // Paint the keycaps first: the empty state quotes them in its copy.
   $('#kbd-speak') && ($('#kbd-speak').textContent = pretty(s.hotkey_speak));
-  $('#kbd-dictate') && ($('#kbd-dictate').textContent = pretty(s.hotkey_dictate));
   $('#streak').textContent = d.streak + (d.streak === 1 ? ' day' : ' days');
   $('#speakwpm').textContent = d.speaking_wpm + ' WPM';
   $('#typewpm').textContent = d.typing_wpm + ' WPM';
@@ -774,8 +772,8 @@ async function loadDashboard(){
   const sub = $('#page-dashboard .sub');
   $('#greeting').textContent = empty ? 'Welcome to Flo' : greeting();
   if (sub) sub.textContent = empty
-    ? `Nothing squirreled away yet. Press ${$('#kbd-dictate').textContent} and start talking, or select text anywhere and press ${$('#kbd-speak').textContent}.`
-    : "Here's what Flo has squirreled away for you";
+    ? `Nothing saved yet. Hold Right Option and start talking, or select text anywhere and press ${$('#kbd-speak').textContent}.`
+    : "Here's what Flo has saved for you";
   $('#c-rb').textContent = d.readback_sessions;
   $('#c-dic').textContent = d.dictation_sessions;
   $('#p-active').textContent = d.active_days;
@@ -913,7 +911,7 @@ async function loadHistory(){
         <button class="danger" onclick="delHistory(${r.id})">Delete</button>
       </div>
     </div>`;
-  }).join('') || '<div class="dim section-gap">Nothing squirreled away yet. Dictate or narrate something!</div>';
+  }).join('') || '<div class="dim section-gap">Nothing saved yet. Dictate or narrate something!</div>';
   window.HIST_ROWS = Object.fromEntries(rows.map(r => [r.id, r.text]));
   paintReplayButtons();
 }
@@ -995,9 +993,8 @@ function renderKeys(el, combo){
 }
 async function loadShortcuts(){
   const s = await api('/api/settings');
-  HOTKEYS = {speak: s.hotkey_speak, dictate: s.hotkey_dictate};
+  HOTKEYS = {speak: s.hotkey_speak};   // dictate is fixed push-to-talk (Right Option)
   renderKeys($('#keys-speak'), HOTKEYS.speak);
-  renderKeys($('#keys-dictate'), HOTKEYS.dictate);
 }
 function stopRecord(){
   if (!RECORDING) return;
@@ -1059,7 +1056,7 @@ document.addEventListener('keydown', async e => {
 });
 async function resetShortcuts(){
   await api('/api/settings', {method:'PUT', body: JSON.stringify({
-    hotkey_speak: '<ctrl>+<alt>+s', hotkey_dictate: '<ctrl>+<alt>+<space>'})});
+    hotkey_speak: '<alt>+s'})});
   toast('Reset to defaults');
   loadShortcuts();
 }
