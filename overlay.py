@@ -1,6 +1,6 @@
 """Floating recording indicator — a dark pill shown while dictating,
-with a red squirrel silhouette, live audio-level dots, and a pulsing
-record dot. Styled after the macOS dictation indicator.
+with the Flo mark, live audio-level dots, and a pulsing record dot.
+Styled after the macOS dictation indicator.
 
 All AppKit calls are marshalled to the main thread with AppHelper.callAfter,
 so show()/hide()/set_level() are safe from any thread.
@@ -20,7 +20,7 @@ N_BARS = 5
 PILL_BG = (0.11, 0.11, 0.12, 0.96)
 DOT_DIM = (0.34, 0.34, 0.36, 1.0)
 DOT_LIT = (0.85, 0.85, 0.88, 1.0)
-RED = (0.88, 0.32, 0.31, 1.0)
+REC = (0.20, 0.70, 0.84, 1.0)   # teal accent (matches the Flo brand)
 
 
 def _color(r, g, b, a):
@@ -64,9 +64,9 @@ class Overlay:
         root.layer().setCornerRadius_(16.0)
         panel.setContentView_(root)
 
-        # red squirrel silhouette, left
+        # Flo mark, left
         img = AppKit.NSImage.alloc().initByReferencingFile_(
-            str(STATIC / "squirrel-red.png"))
+            str(STATIC / "flo-overlay.png"))
         iv = AppKit.NSImageView.alloc().initWithFrame_(
             AppKit.NSMakeRect(16, (H - 28) / 2, 28, 28))
         iv.setImage_(img)
@@ -88,7 +88,7 @@ class Overlay:
         dot = AppKit.NSView.alloc().initWithFrame_(
             AppKit.NSMakeRect(W - 34, (H - 18) / 2, 18, 18))
         dot.setWantsLayer_(True)
-        dot.layer().setBackgroundColor_(_color(*RED))
+        dot.layer().setBackgroundColor_(_color(*REC))
         dot.layer().setCornerRadius_(9.0)
         root.addSubview_(dot)
         self._dot = dot

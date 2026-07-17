@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Flo — your work, narrated. Local voice dictation and narration for macOS.
 
-Run `uv run flo.py` to start the menu bar app (🥜) with global hotkeys
+Run `uv run flo.py` to start the menu bar app with global hotkeys
 and the dashboard at http://127.0.0.1:8765.
 
   * Narrate hotkey: reads the text you have selected in ANY app aloud.

@@ -55,7 +55,7 @@ Every flag is optional — bare `./install.sh` just sets up the code.
 | `--login` | starts Flo automatically at login. |
 | `--uninstall` | removes the app and the login item. Your data stays. |
 
-A squirrel appears in the menu bar. The dashboard lives at
+The Flo icon appears in the menu bar. The dashboard lives at
 **http://127.0.0.1:8765**.
 
 > **First run downloads the speech model** — about 1.6 GB on Apple Silicon,

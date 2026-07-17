@@ -22,7 +22,7 @@ where Flo fails.
 
 The defining failure: **macOS requires Accessibility permission for global
 hotkeys, and without it `pynput` does not error — it silently never fires.**
-Flo prints `Hotkeys active`, shows a contented squirrel in the menu bar, and
+Flo prints `Hotkeys active`, shows the Flo icon in the menu bar, and
 does nothing when you press the key. The app is not broken. The app is lying.
 
 A friend who hits this has no error, no banner, no log they would know to open.
