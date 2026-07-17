@@ -132,6 +132,9 @@ def main() -> int:
                         help="run a no-mic end-to-end self test and exit")
     parser.add_argument("--doctor", action="store_true",
                         help="show hardware, engine, model, permissions, paths")
+    parser.add_argument("--clean", metavar="TEXT",
+                        help="run the local AI cleanup on TEXT and print it "
+                             "(downloads the cleanup model on first use)")
     parser.add_argument("--version", action="version", version=f"Flo {VERSION}")
     args = parser.parse_args()
 
@@ -139,6 +142,18 @@ def main() -> int:
         return doctor()
     if args.test:
         return self_test()
+    if args.clean is not None:
+        import store
+        import cleanup
+        store.init()
+        log("loading cleanup model (first run downloads it, ~1.7 GB)…")
+        cleanup.warm_up()
+        if cleanup.state() != "ready":
+            log(f"cleanup model not ready: {cleanup.state()} ({cleanup.error()})")
+            return 1
+        print("\nRAW  :", args.clean)
+        print("CLEAN:", cleanup.clean(args.clean))
+        return 0
 
     from app import FloApp
 
