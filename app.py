@@ -1,5 +1,6 @@
 """Flo menu bar app — ties together hotkeys, dashboard server, and menus."""
 
+import fcntl
 import threading
 import webbrowser
 from pathlib import Path
@@ -56,12 +57,35 @@ def build_menu(trusted: bool, speak: str, dictate: str, command: str,
     return items
 
 
+def _single_instance_lock(port: int):
+    """Exclusive advisory lock so exactly one Flo runs per port. Returns the open
+    file (keep the reference alive for the process lifetime) or None if another
+    instance already holds it. Taken before any UI exists, so a duplicate launch
+    exits cleanly instead of racing for the port and stranding a dead menu-bar
+    icon — the failure mode the old port-in-use check had."""
+    try:
+        f = open(f"/tmp/flo-{port}.lock", "w")
+        fcntl.flock(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return f
+    except OSError:
+        return None
+
+
 class FloApp(rumps.App):
     def __init__(self):
+        # Claim single-instance BEFORE building any UI, so a second launch never
+        # leaves a stranded icon behind.
+        store.init()
+        self.port = int(store.get_valid("port"))
+        self._lock = _single_instance_lock(self.port)
+        if self._lock is None:
+            core.log(f"Flo is already running at http://127.0.0.1:{self.port}")
+            webbrowser.open(f"http://127.0.0.1:{self.port}")
+            raise SystemExit(0)
+
         super().__init__("Flo", icon=ICON_IDLE, template=True,
                          quit_button="Quit Flo")
         permissions.request_microphone()   # triggers TCC prompt for mic on first run
-        store.init()
         # Apply the cap to whatever accumulated while an older build ran.
         pruned = store.prune_recordings()
         if pruned:
@@ -75,14 +99,6 @@ class FloApp(rumps.App):
         self.hotkeys = core.HotkeyManager(self.core)
         server.CORE = self.core
         server.HOTKEYS = self.hotkeys
-        self.port = int(store.get_valid("port"))
-
-        # Two Flos fight over the port AND the hotkeys, and the loser's
-        # symptoms are baffling. Refuse to be the second one.
-        if server.port_in_use(self.port):
-            core.log(f"Flo is already running at http://127.0.0.1:{self.port}")
-            webbrowser.open(f"http://127.0.0.1:{self.port}")
-            raise SystemExit(0)
 
         speak = store.get_valid("hotkey_speak")
         dictate = store.get_valid("hotkey_dictate")

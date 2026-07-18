@@ -718,6 +718,21 @@ async function loadStatus(){
         <p>${esc(s.model_error || '')} — check your connection and restart Flo.
            Narration still works.</p>
       </div>`;
+  } else if (s.cleanup_state === 'loading'){
+    el.classList.add('info');
+    el.innerHTML = `<div>
+        <h4 class="serif"><span class="spinner"></span>Setting up AI cleanup</h4>
+        <p>Downloading the local cleanup model (~1.7&nbsp;GB, once). Until it's
+           ready, dictation types the raw transcript — grammar and filler cleanup
+           switch on automatically as soon as it lands.</p>
+      </div>`;
+  } else if (s.cleanup_state === 'error'){
+    el.classList.add('info');
+    el.innerHTML = `<div>
+        <h4 class="serif">AI cleanup is off</h4>
+        <p>The cleanup model didn't load, so dictation types the raw transcript.
+           Everything else works. You can retry or turn it off in Settings.</p>
+      </div>`;
   // A dismissed nudge stays dismissed — except 'missing', which is a real
   // fault (you picked a voice, it's gone, macOS is substituting silently).
   } else if (!s.voice_ok && (s.voice_reason === 'missing'
