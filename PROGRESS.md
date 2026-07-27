@@ -82,9 +82,15 @@ Settings live in `flo.db` after first run (`config.toml` only seeds it once).
 5. Roadmap ideas: per-app writing styles, streaming injection, a "Learned preferences"
    management view in the dashboard, shared vocabulary with other tools.
 
-## Repo state (important for continuing in Cowork)
-- `origin` = `https://github.com/Bjepp77/walnut.git` (Brandon's — you can't push there).
-- gh CLI is authed as `alexsisk25`.
-- To give Flo its own home: `gh repo create flo --private --source=. --remote=origin
-  --push` (this repoints origin to your account and pushes). Confirm private vs public
-  first. Until then the project is local-only and fully committed.
+## Repo state
+- `origin` = `https://github.com/alexsisk25/flo.git` (yours, private) — push here.
+- `upstream` = `https://github.com/Bjepp77/walnut.git` (Brandon's) — pull his fixes from
+  here, never push. `git fetch upstream && git merge upstream/main` when you want them.
+- gh CLI is authed as `alexsisk25`. All work through the Cowork handoff is pushed.
+
+## What a Cowork session can and cannot do here
+Cowork reaches this folder through a file bridge, not a shell on your Mac. It can read
+and edit these files, commit, and push. It **cannot** run `flo.py`, download the cleanup
+model, or use your mic — those need Terminal on the Mac. So the three open verifications
+below are yours to run; paste the output back into the session and Cowork fixes whatever
+breaks.
