@@ -17,6 +17,7 @@ dependencies = [
     # Local LLM cleanup (grammar, filler removal, self-corrections) on the GPU.
     # Apple Silicon only — mlx has no x86_64 wheels; Intel falls back to raw text.
     "mlx-lm>=0.21.0; sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "pyobjc-framework-avfoundation>=12.2.1",
 ]
 
 [dependency-groups]

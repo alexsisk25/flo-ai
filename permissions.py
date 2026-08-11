@@ -55,8 +55,9 @@ def request_microphone() -> None:
     startup ensures the system dialog appears on first launch and that
     Flo.app shows up in Privacy & Security → Microphone.
 
-    Uses objc.loadBundle (pyobjc-core, already a dependency) to load
-    AVFoundation directly — no extra package needed.
+    Requires pyobjc-framework-avfoundation, declared in pyproject.toml.
+    Without it this call silently does nothing and macOS is never asked for
+    mic access, which is how Flo spent weeks recording digital silence.
     """
     try:
         import AVFoundation
@@ -71,11 +72,38 @@ def request_microphone() -> None:
         pass
 
 
+# AVAuthorizationStatus
+_MIC_STATUS = {0: "not_requested", 1: "restricted", 2: "denied", 3: "granted"}
+
+
+def microphone_status() -> str:
+    """'granted' | 'denied' | 'restricted' | 'not_requested' | 'unknown'.
+
+    Worth checking separately from Accessibility, because the failure is silent
+    and deeply misleading: PortAudio happily "records" without mic permission,
+    it just returns digital silence. Whisper then hallucinates on that silence —
+    almost always the single word "You" — so the app looks like it heard you and
+    got it catastrophically wrong, rather than like it never heard you at all.
+    """
+    try:
+        import AVFoundation
+        st = AVFoundation.AVCaptureDevice.authorizationStatusForMediaType_(
+            AVFoundation.AVMediaTypeAudio)
+        return _MIC_STATUS.get(int(st), "unknown")
+    except Exception:
+        return "unknown"
+
+
 def summary() -> dict:
     """What the dashboard and --doctor report."""
     ok = accessibility_trusted()
+    mic = microphone_status()
     return {
         "accessibility": ok,
+        "microphone": mic,
+        "mic_hint": None if mic in ("granted", "unknown") else (
+            "Flo can open the mic but is recording silence. System Settings → "
+            "Privacy & Security → Microphone. Then restart Flo."),
         "hint": None if ok else (
             "Flo needs Accessibility permission to use global hotkeys and "
             "type into other apps. System Settings → Privacy & Security → "

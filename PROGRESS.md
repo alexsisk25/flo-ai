@@ -28,11 +28,33 @@ Works today (verified):
 - 96 automated tests pass (`uv run --group dev pytest -q`).
 
 Built but NOT yet verified working:
-- **Live push-to-talk dictation end-to-end** — never actually run with Flo's code
-  (Accessibility is granted via the `uv` entry; the log shows "Hotkeys active").
-- **AI cleanup** (grammar/filler/self-corrections) — wired + logic unit-tested, but the
-  ~1.7 GB cleanup model has never downloaded/run (sandbox throttled it). Fails safe to
-  raw text until ready.
+- **Live push-to-talk dictation end-to-end** — never actually run with Flo's code.
+  **Blocked as of 2026-07-27:** `--doctor` reports `Accessibility: MISSING`, so the
+  hotkeys register but never fire. The earlier note that "Accessibility is granted via
+  the `uv` entry" was wrong. Two separate grants are needed, because macOS attributes
+  Accessibility to the *responsible* process, not to `flo.py`:
+    - running by hand from Terminal → the grant must be on **Terminal.app** (or iTerm)
+    - the login agent `com.flo.app` → the grant must be on the **`uv` binary**
+      (`which uv`, add it in the Accessibility pane with ⌘⇧G)
+  Note `flo.py --doctor` only *checks*; it never prompts. Only `app.py` (the menu-bar
+  app) calls `request_accessibility()`, and macOS shows that dialog once per binary.
+- **AI cleanup** — now VERIFIED on device (2026-07-27). Model downloaded (~24 min) and
+  ran: `"um so we should uh meet tuesday actually make that friday"` →
+  `"We should meet on Friday actually."` Correct self-correction (dropped Tuesday), but
+  it left the cue word "actually" dangling. Fixed in `cleanup.py` by (a) telling the
+  model to delete the correction cue itself and (b) adding two few-shot examples as
+  chat turns, which a 3B model follows far more reliably than a described rule.
+  Confirmed fixed on re-run: output is now `"We should meet on Friday."`
+  A second, unseen case (`"...two point one no wait two point four cap rate you know"`)
+  resolved the correction correctly but stranded the trailing `"you know"`. Addressed
+  with a third few-shot example plus `_TRAILING_FILLER`, a tail-only regex backstop in
+  `_postprocess` (deliberately limited to "you know / I mean / um / uh" so it can't eat
+  real words the way a global "like" filter would).
+  Also added, per Alex 2026-07-27: spoken numbers are now written as digits
+  ("two point four" -> "2.4", "forty thousand" -> "40,000", "ten percent" -> "10%").
+  This is a CRE/finance-driven choice; watch for over-conversion of fixed phrases like
+  "one of the tenants". **Both changes need a re-run to confirm.**
+  Quality is good enough to stay on Qwen2.5-3B; no bigger model or Claude fallback.
 - **Learning loop** (auto-add corrected spellings + style preferences from your edits)
   — pure diff logic tested (11 tests); the real Accessibility-based watcher unobserved.
 - Narration via Right Option + S — new binding, not verified firing.

@@ -120,10 +120,21 @@ def doctor() -> int:
     if not trusted:
         log("  → Hotkeys will register but never fire. System Settings →")
         log("    Privacy & Security → Accessibility. Then restart Flo.")
+    mic = permissions.microphone_status()
+    log(f"Microphone:   {mic}")
+    if mic in ("denied", "restricted"):
+        log("  → Flo will record SILENCE and Whisper will hallucinate a word or")
+        log("    two from it (usually \"You\"). System Settings → Privacy &")
+        log("    Security → Microphone. Then restart Flo.")
+    elif mic == "not_requested":
+        log("  → macOS has never been asked. Start the menu-bar app once")
+        log("    (./install.sh --app, or launchctl kickstart the login agent)")
+        log("    to trigger the prompt; --doctor alone never asks.")
+
     if info["backend"] == speech.FASTER and speech.is_apple_silicon():
         log("NOTE: Apple Silicon is running the CPU engine. Install mlx-whisper "
             "(`uv sync`) or set backend to 'auto' for a big speed-up.")
-    return 0 if trusted else 1
+    return 0 if (trusted and mic in ("granted", "unknown")) else 1
 
 
 def main() -> int:
