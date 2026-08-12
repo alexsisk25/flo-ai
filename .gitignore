@@ -1,5 +1,9 @@
 # local data — personal history, recordings, settings live here
+# flo.db-wal / flo.db-shm are SQLite's runtime journal files. They are not
+# covered by the bare 'flo.db' pattern and a stale copy of either can corrupt
+# a newer database, so match the whole family.
 flo.db
+flo.db-*
 recordings/
 .selftest.wav
 *.log
