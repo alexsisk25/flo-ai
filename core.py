@@ -29,9 +29,14 @@ SOUND_ERROR = "/System/Library/Sounds/Basso.aiff"
 # decodes *something*. Historically that was the single word "You"; with the
 # mic live but nobody speaking it becomes a repetition loop. Cheaper and far
 # more legible to notice there is no speech and never call the model.
-# Ordinary speech peaks well above 0.05; a live-but-silent mic sits near 0.001.
-SILENCE_PEAK = 0.015
-SILENCE_RMS = 0.002
+# Measured on the dev machine, 5s holds:
+#   silent room : peak 0.1157, rms 0.0028
+#   normal speech: peak 0.1329, rms 0.0153
+# Peak is useless as a discriminator — a quiet room still produces sharp
+# transients (keyboard, desk knocks) that peak as high as speech does. Sustained
+# energy is what separates them, so gate on RMS alone. 0.005 sits ~1.8x above a
+# silent room and ~3x below normal speech.
+SILENCE_RMS = 0.005
 
 # Whisper's other failure mode on noise: emitting one short fragment hundreds
 # of times ("Cluster 07212121212121…"). Left unchecked it reaches the cleanup
@@ -375,8 +380,12 @@ class Core:
                 return
             peak = float(np.max(np.abs(audio)))
             rms = float(np.sqrt(np.mean(audio ** 2)))
-            if peak < SILENCE_PEAK and rms < SILENCE_RMS:
-                log(f"Heard nothing (peak {peak:.4f}, rms {rms:.4f}) — "
+            # Always log the levels. The thresholds below are only as good as
+            # the room they were tuned in, and this is the data needed to tune
+            # them. A silent hold and a spoken one should be far apart here.
+            log(f"Level: peak {peak:.4f}, rms {rms:.4f}")
+            if rms < SILENCE_RMS:
+                log(f"Heard nothing (rms {rms:.4f} < {SILENCE_RMS}) — "
                     "not transcribing.")
                 return
             log(f"Transcribing {secs:.1f}s…")
@@ -447,9 +456,20 @@ class Core:
         sf.write(path, audio, SAMPLE_RATE, subtype="PCM_16")
         return str(path)
 
+    @staticmethod
+    def _frontmost() -> str:
+        """Name of the app that will receive the paste, for the log."""
+        try:
+            import AppKit
+            app = AppKit.NSWorkspace.sharedWorkspace().frontmostApplication()
+            return app.localizedName() if app else "unknown"
+        except Exception as e:
+            return f"unknown ({type(e).__name__})"
+
     def _type(self, text: str) -> None:
         from pynput.keyboard import Key
 
+        log(f"Typing into: {self._frontmost()}")
         saved = get_clipboard()
         try:
             set_clipboard(text)

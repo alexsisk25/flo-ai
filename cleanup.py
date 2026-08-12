@@ -78,6 +78,9 @@ SYSTEM = (
     "\"wait\", \"no\", \"I mean\"), keep only their final intent, and delete the "
     "correction cue word itself. The reader should not be able to tell the speaker "
     "changed their mind.\n"
+    "- A correction mid-sentence REPLACES what came before it. In \"typing, I mean "
+    "talking\" the word is \"talking\" and \"typing\" must be deleted. Never keep both, "
+    "and never split them into two sentences.\n"
     "- Write spoken numbers as digits: \"two point four\" -> \"2.4\", \"forty "
     "thousand\" -> \"40,000\", \"twenty twenty six\" -> \"2026\", \"ten percent\" "
     "-> \"10%\". Leave a number alone when it is part of a fixed phrase rather than "
@@ -90,7 +93,7 @@ SYSTEM = (
 )
 
 
-# Three worked examples. A 3B model follows a demonstration far more reliably than
+# Four worked examples. A 3B model follows a demonstration far more reliably than
 # a described rule, and the self-correction case is the one it gets wrong without
 # them (it strips the abandoned option but leaves the "actually" behind).
 _EXAMPLES = [
@@ -102,6 +105,10 @@ _EXAMPLES = [
     # it at the END once it has spent effort resolving a correction mid-sentence.
     ("i mean the deal was around two point one no wait two point four cap rate you know",
      "The deal was around a 2.4 cap rate."),
+    # Mid-sentence replacement. Without this the model keeps BOTH words and
+    # splits the sentence in two, which reads worse than the raw transcript.
+    ("okay i'm now typing i mean talking into the claude text box not the terminal",
+     "Okay, I'm now talking into the Claude text box, not the terminal."),
 ]
 
 
