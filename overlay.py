@@ -37,10 +37,7 @@ class Overlay:
     # ------------------------------------------------------------ UI build
 
     def _build(self):
-        screen = AppKit.NSScreen.mainScreen().frame()
-        x = screen.origin.x + (screen.size.width - W) / 2
-        y = screen.origin.y + 140  # just above the Dock
-        rect = AppKit.NSMakeRect(x, y, W, H)
+        rect = AppKit.NSMakeRect(0, 0, W, H)   # real position set on show()
 
         style = (AppKit.NSWindowStyleMaskBorderless
                  | AppKit.NSWindowStyleMaskNonactivatingPanel)
@@ -128,9 +125,44 @@ class Overlay:
 
     # ------------------------------------------------------------ main-thread
 
+    def _active_screen(self):
+        """The screen the cursor is on, which is where the user is working.
+
+        NSScreen.mainScreen() means "screen with the key window", not the
+        primary display, and Flo has no key window. The old code called it once
+        at build time and never moved the pill again, so on a multi-monitor Mac
+        it got pinned to whatever display happened to be active at launch and
+        could sit half off the edge for the rest of the session.
+        """
+        loc = AppKit.NSEvent.mouseLocation()
+        for s in AppKit.NSScreen.screens():
+            f = s.frame()
+            if (f.origin.x <= loc.x <= f.origin.x + f.size.width
+                    and f.origin.y <= loc.y <= f.origin.y + f.size.height):
+                return s
+        return AppKit.NSScreen.mainScreen() or AppKit.NSScreen.screens()[0]
+
+    def _reposition(self):
+        """Centre the pill low on the active screen, clamped fully on-screen."""
+        try:
+            vf = self._active_screen().visibleFrame()
+            x = vf.origin.x + (vf.size.width - W) / 2
+            y = vf.origin.y + 140          # just above the Dock
+            x = max(vf.origin.x + 8,
+                    min(x, vf.origin.x + vf.size.width - W - 8))
+            y = max(vf.origin.y + 8,
+                    min(y, vf.origin.y + vf.size.height - H - 8))
+            self._panel.setFrameOrigin_(AppKit.NSMakePoint(x, y))
+        except Exception as e:
+            # Never let a positioning problem stop the recording indicator, but
+            # do not hide it either — a silent except is what cost us weeks.
+            print(f"overlay: could not position the pill: "
+                  f"{type(e).__name__}: {e}", flush=True)
+
     def _show_main(self):
         if not self._built:
             return
+        self._reposition()
         self._set_bars_main(0)
         self._panel.orderFrontRegardless()
         self._pulse()

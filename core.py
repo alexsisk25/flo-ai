@@ -24,6 +24,31 @@ SOUND_START = "/System/Library/Sounds/Tink.aiff"
 SOUND_STOP = "/System/Library/Sounds/Pop.aiff"
 SOUND_ERROR = "/System/Library/Sounds/Basso.aiff"
 
+# Silence gate. Handing Whisper a buffer of near-silence does not produce an
+# empty string — it produces confident nonsense, because the model always
+# decodes *something*. Historically that was the single word "You"; with the
+# mic live but nobody speaking it becomes a repetition loop. Cheaper and far
+# more legible to notice there is no speech and never call the model.
+# Ordinary speech peaks well above 0.05; a live-but-silent mic sits near 0.001.
+SILENCE_PEAK = 0.015
+SILENCE_RMS = 0.002
+
+# Whisper's other failure mode on noise: emitting one short fragment hundreds
+# of times ("Cluster 07212121212121…"). Left unchecked it reaches the cleanup
+# model, which then spends ~30s dutifully tidying garbage while every further
+# hotkey press is rejected as "still working".
+_REPEAT_RUN = re.compile(r"(.{1,12}?)\1{9,}", re.S)
+
+
+def looks_degenerate(text: str) -> bool:
+    """True if the transcript looks like a decoder repetition loop."""
+    if not text:
+        return False
+    if _REPEAT_RUN.search(text):
+        return True
+    words = text.split()
+    return len(words) >= 20 and len(set(words)) <= max(3, len(words) // 12)
+
 
 def log(msg: str) -> None:
     print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
@@ -348,6 +373,12 @@ class Core:
             if secs < 0.4:
                 log("Recording too short, ignored.")
                 return
+            peak = float(np.max(np.abs(audio)))
+            rms = float(np.sqrt(np.mean(audio ** 2)))
+            if peak < SILENCE_PEAK and rms < SILENCE_RMS:
+                log(f"Heard nothing (peak {peak:.4f}, rms {rms:.4f}) — "
+                    "not transcribing.")
+                return
             log(f"Transcribing {secs:.1f}s…")
             t0 = time.time()
             try:
@@ -361,6 +392,12 @@ class Core:
                 # model download failed, disk full, corrupt weights… don't die
                 # silently in a worker thread: chime and say so in the log.
                 log(f"Transcription failed: {type(e).__name__}: {e}")
+                play_sound(SOUND_ERROR)
+                return
+            if looks_degenerate(text):
+                log(f"Discarded a degenerate transcript "
+                    f"({len(text)} chars, {len(set(text.split()))} distinct "
+                    f"words): {text[:60]!r}…")
                 play_sound(SOUND_ERROR)
                 return
             text, used_snippet = Vocabulary.apply(text)
