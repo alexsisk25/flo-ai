@@ -10,6 +10,18 @@ Settings. What we can do is know, say so, and open the right pane.
 """
 
 import subprocess
+import sys
+
+
+def _warn(msg: str) -> None:
+    """Permission checks that fail must SAY SO.
+
+    Every bug that cost this project real time was a permission problem hidden
+    behind a bare `except: pass`. A missing pyobjc framework made
+    request_microphone() a no-op for weeks, so macOS was never asked for mic
+    access, so Whisper transcribed silence and hallucinated. Nothing logged.
+    """
+    print(f"[permissions] {msg}", file=sys.stderr, flush=True)
 
 # System Settings → Privacy & Security → Accessibility
 _AX_PANE = ("x-apple.systempreferences:com.apple.preference.security"
@@ -21,8 +33,11 @@ def accessibility_trusted() -> bool:
     try:
         from ApplicationServices import AXIsProcessTrusted
         return bool(AXIsProcessTrusted())
-    except Exception:
-        # Not on macOS, or pyobjc missing. Don't block the app over a check.
+    except Exception as e:
+        # Not on macOS, or pyobjc missing. Don't block the app over a check,
+        # but do not pretend this was a real "yes" either.
+        _warn(f"could not check Accessibility ({type(e).__name__}: {e}); "
+              "assuming granted — hotkeys may silently never fire")
         return True
 
 
@@ -37,7 +52,9 @@ def request_accessibility() -> bool:
                                          kAXTrustedCheckOptionPrompt)
         return bool(AXIsProcessTrustedWithOptions(
             {kAXTrustedCheckOptionPrompt: True}))
-    except Exception:
+    except Exception as e:
+        _warn(f"could not show the Accessibility prompt "
+              f"({type(e).__name__}: {e})")
         return accessibility_trusted()
 
 
@@ -68,8 +85,12 @@ def request_microphone() -> None:
             AVFoundation.AVCaptureDevice.requestAccessForMediaType_completionHandler_(
                 AVFoundation.AVMediaTypeAudio, lambda granted: None
             )
-    except Exception:
-        pass
+    except Exception as e:
+        # THE original bug: pyobjc-framework-avfoundation was not declared as a
+        # dependency, so this import raised, this handler swallowed it, macOS
+        # was never asked, and Flo recorded silence for weeks. Never silent again.
+        _warn(f"could not request Microphone access ({type(e).__name__}: {e}); "
+              "recordings will be silent")
 
 
 # AVAuthorizationStatus
@@ -90,7 +111,8 @@ def microphone_status() -> str:
         st = AVFoundation.AVCaptureDevice.authorizationStatusForMediaType_(
             AVFoundation.AVMediaTypeAudio)
         return _MIC_STATUS.get(int(st), "unknown")
-    except Exception:
+    except Exception as e:
+        _warn(f"could not read Microphone status ({type(e).__name__}: {e})")
         return "unknown"
 
 

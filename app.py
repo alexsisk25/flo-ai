@@ -148,8 +148,9 @@ class FloApp(rumps.App):
                 self.overlay.show()
             else:
                 self.overlay.hide()
-        except Exception:
-            pass
+        except Exception as e:
+            core.log(f"Could not update the menu-bar icon or overlay: "
+                     f"{type(e).__name__}: {e}")
 
     def open_dashboard(self, _):
         webbrowser.open(f"http://127.0.0.1:{self.port}")

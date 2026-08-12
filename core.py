@@ -312,12 +312,18 @@ class Core:
         self.stop_all()
         self.frames = []
 
+        warned = []
+
         def on_audio(indata, *_):
             self.frames.append(indata.copy())
             try:
                 self.on_level(float(np.sqrt(np.mean(indata ** 2))))
-            except Exception:
-                pass
+            except Exception as e:
+                # Runs per audio frame, so log once per recording rather than
+                # thousands of times — but never nothing.
+                if not warned:
+                    warned.append(True)
+                    log(f"Level meter failed: {type(e).__name__}: {e}")
 
         def open_stream():
             s = sd.InputStream(samplerate=SAMPLE_RATE, channels=1,

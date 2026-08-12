@@ -143,6 +143,9 @@ def preferences(produced: str, edited: str) -> list[tuple[str, str, str]]:
 
 # ------------------------------------------------------------ Accessibility read
 
+_read_warned: list = []
+
+
 def read_focused_text() -> str | None:
     """The text of the currently focused UI element, via the Accessibility API.
     Returns None for secure fields or when the app exposes nothing."""
@@ -163,7 +166,11 @@ def read_focused_text() -> str | None:
         if verr != 0 or not isinstance(value, str):
             return None
         return value
-    except Exception:
+    except Exception as e:
+        if not _read_warned:
+            _read_warned.append(True)
+            log(f"cannot read the focused field ({type(e).__name__}: {e}); "
+                "learning from your edits is disabled this session")
         return None
 
 

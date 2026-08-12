@@ -1,118 +1,134 @@
 # Flo — Project Ledger
 
-Resume file for any fresh Claude session (Cowork or otherwise). Read this alone and
-you can pick up where the last session left off.
+Resume file for any fresh Claude session. Read this alone and you can pick up
+where the last session left off.
 
 ## What Flo is
-A privacy-first, 100% local voice dictation + narration app for Apple Silicon Macs.
-Hold **Right Option** to dictate into any app; **Right Option + S** to read the
-selection aloud. Whisper runs on the GPU; there is no cloud, no API keys, no
-subscription, and running it costs $0 (no Claude/LLM API calls).
+A privacy-first, 100% local voice dictation + narration app for Apple Silicon
+Macs. Hold **Right Option** to dictate into any app; **Option + S** to read the
+selection aloud. Whisper runs on the GPU, a small local LLM cleans the
+transcript, and the app learns your vocabulary from your own corrections. No
+cloud, no API keys, no subscription, $0 to run.
 
-**Provenance:** forked from Brandon's `Bjepp77/walnut` (a working, MIT-licensed tool),
-then rebranded to Flo and extended. The `origin` remote still points at Brandon's repo
-— **it needs its own home** (see "Repo state" below).
+**Provenance:** forked from Brandon's `Bjepp77/walnut` (MIT), rebranded and
+extended.
 
-## Current status (honest audit — 2026-07-17)
-Lifecycle: **MVP built**, not yet verified end-to-end on device, not shipped.
+## Status — 2026-08-12: WORKING END TO END
+The core loop is verified live on device for the first time. Dictation,
+cleanup, and the learning loop have all been observed working.
 
-Works today (verified):
-- Rebrand to Flo — cursive monochrome + teal palette, all icons + favicon, zero
-  "walnut/squirrel" branding left.
-- On-device Whisper transcription (mlx/GPU, large-v3-turbo) — proven by `--test`.
-- Storage (SQLite): dictionary, snippets, replacements, history, stats.
-- Web dashboard (Dashboard, Dictionary, Snippets, History, Shortcuts, Settings) at
-  http://127.0.0.1:8765 — serves + CRUD APIs tested.
-- Menu-bar app + installer (`Flo.app` in /Applications + login agent) — builds, runs,
-  auto-starts. Single-instance flock lock (no more duplicate icons).
-- 96 automated tests pass (`uv run --group dev pytest -q`).
+Verified working:
+- Push-to-talk dictation. Hold Right Option, speak, release, text is pasted
+  into the focused app. Confirmed in TextEdit and in the Claude desktop app.
+- On-device Whisper (mlx/GPU, large-v3-turbo). 18.9s of audio transcribed and
+  cleaned in 3.2s.
+- AI cleanup, live in the dictation path. Resolves self-corrections, strips
+  filler, writes spoken numbers as digits.
+  `"Let's meet Tuesday, I mean Wednesday at the office."` → `"Let's meet
+  Wednesday at the office."`
+- Learning loop. Correcting a word Flo typed adds the correct spelling to the
+  Dictionary automatically (observed: `comms -> comps`).
+- Silence gate and degenerate-transcript guard (see "Hard-won lessons").
+- Web dashboard at http://127.0.0.1:8765, 96 automated tests, installer.
 
-Built but NOT yet verified working:
-- **Live push-to-talk dictation end-to-end** — never actually run with Flo's code.
-  **Blocked as of 2026-07-27:** `--doctor` reports `Accessibility: MISSING`, so the
-  hotkeys register but never fire. The earlier note that "Accessibility is granted via
-  the `uv` entry" was wrong. Two separate grants are needed, because macOS attributes
-  Accessibility to the *responsible* process, not to `flo.py`:
-    - running by hand from Terminal → the grant must be on **Terminal.app** (or iTerm)
-    - the login agent `com.flo.app` → the grant must be on the **`uv` binary**
-      (`which uv`, add it in the Accessibility pane with ⌘⇧G)
-  Note `flo.py --doctor` only *checks*; it never prompts. Only `app.py` (the menu-bar
-  app) calls `request_accessibility()`, and macOS shows that dialog once per binary.
-- **AI cleanup** — now VERIFIED on device (2026-07-27). Model downloaded (~24 min) and
-  ran: `"um so we should uh meet tuesday actually make that friday"` →
-  `"We should meet on Friday actually."` Correct self-correction (dropped Tuesday), but
-  it left the cue word "actually" dangling. Fixed in `cleanup.py` by (a) telling the
-  model to delete the correction cue itself and (b) adding two few-shot examples as
-  chat turns, which a 3B model follows far more reliably than a described rule.
-  Confirmed fixed on re-run: output is now `"We should meet on Friday."`
-  A second, unseen case (`"...two point one no wait two point four cap rate you know"`)
-  resolved the correction correctly but stranded the trailing `"you know"`. Addressed
-  with a third few-shot example plus `_TRAILING_FILLER`, a tail-only regex backstop in
-  `_postprocess` (deliberately limited to "you know / I mean / um / uh" so it can't eat
-  real words the way a global "like" filter would).
-  Also added, per Alex 2026-07-27: spoken numbers are now written as digits
-  ("two point four" -> "2.4", "forty thousand" -> "40,000", "ten percent" -> "10%").
-  This is a CRE/finance-driven choice; watch for over-conversion of fixed phrases like
-  "one of the tenants". **Both changes need a re-run to confirm.**
-  Quality is good enough to stay on Qwen2.5-3B; no bigger model or Claude fallback.
-- **Learning loop** (auto-add corrected spellings + style preferences from your edits)
-  — pure diff logic tested (11 tests); the real Accessibility-based watcher unobserved.
-- Narration via Right Option + S — new binding, not verified firing.
+NOT yet verified:
+- **Narration** (Option + S). Never confirmed firing. Needs a Premium/Enhanced
+  system voice installed first; the system default is why `--doctor` warns.
+- **The login agent.** `./install.sh --app --login` has not been re-run since
+  the repo moved, so Flo currently only runs while `uv run flo.py` is open in
+  a terminal. This is the last step to it being a real app.
+
+## Hard-won lessons (do not re-learn these)
+
+**The bug that cost a month.** `pyobjc-framework-avfoundation` was never
+declared as a dependency. `permissions.request_microphone()` did
+`import AVFoundation` inside a bare `except Exception: pass`, so the import
+failed silently, macOS was never asked for mic access, PortAudio returned
+digital silence, and Whisper hallucinated from it. The app looked like it heard
+you and got it catastrophically wrong. Nothing logged. Fixed in `112df41`.
+
+**Silence is not empty.** Whisper always decodes something. Given silence it
+produces confident nonsense: the single word "You", or a repetition loop
+("Cluster 07212121…", "nuevo nuevo nuevo…" x400) that then takes the cleanup
+model ~30s to tidy while every further hotkey press is rejected as busy. Two
+guards now: an RMS silence gate before transcription, and a degenerate-output
+detector after it.
+
+**Peak is useless for detecting speech.** Measured on this machine over 5s
+holds: silent room peak 0.1157 / rms 0.0028; normal speech peak 0.1329 / rms
+0.0187. A quiet room produces transients (keys, desk knocks) that peak as high
+as speech. Sustained energy is the only reliable signal. `SILENCE_RMS = 0.005`.
+Known limit: global RMS is diluted by long pauses. If a "hold, pause, then
+speak" pattern gets wrongly rejected, switch to measuring the loudest stretch.
+
+**Never silently swallow an exception.** As of 2026-08-12 there are zero
+`except Exception: pass` handlers in this codebase, and it should stay that
+way. The 96 tests pass just as happily with a broken environment as a working
+one — they cover logic, not the machine.
+
+**macOS grants permission to the binary, not to "Flo".** Accessibility is
+needed twice: on **Terminal.app** for manual runs, and on the **`uv` binary**
+(`/opt/homebrew/bin/uv`) for the login agent. `brew upgrade uv` replaces that
+binary and can silently void the grant — first place to look if the hotkey
+ever dies for no reason.
+
+**Do not keep this repo in iCloud Drive.** It lived on the Desktop, iCloud
+evicted the files after two weeks idle, and a running app writing SQLite into a
+syncing folder is a corruption waiting to happen. Now at `~/Projects/Flo`.
 
 ## How to run / test
 ```sh
-cd "/Users/alexsisk/Desktop/Claude Projects/Flo"
+cd ~/Projects/Flo
 uv run flo.py --doctor        # hardware, engine, model, hotkeys, permissions
-uv run flo.py --test          # no-mic end-to-end (TTS -> Whisper -> vocab)
-uv run flo.py --clean "TEXT"  # test the AI cleanup on sample text (downloads model 1st run)
+uv run flo.py                 # run it (hotkeys live while this is open)
+uv run flo.py --test          # no-mic end-to-end
+uv run flo.py --clean "TEXT"  # test the AI cleanup on sample text
 uv run --group dev pytest -q  # 96 tests
 ./install.sh --app --login    # build Flo.app + start at login
 ```
-The permanent instance is the **login agent** `com.flo.app` (runs via `uv`, KeepAlive).
-Restart it cleanly: `launchctl kickstart -k "gui/$(id -u)/com.flo.app"`.
-Do NOT also `uv run flo.py` manually — that's a second instance (the flock lock now
-makes it exit, but don't rely on it).
-
-## Hotkeys
-- **Hold Right Option** → push-to-talk dictation (hold, speak, release → types).
-- **Right Option + S** → narrate the selected text (press again to stop).
-- `Ctrl+Alt+C` → dormant "MegaMind Console" voice command (Brandon's; needs a Console
-  you don't have — harmless).
+Restart the login agent: `launchctl kickstart -k "gui/$(id -u)/com.flo.app"`.
+Never run `uv run flo.py` manually while the login agent is also running.
 
 ## Architecture (file map)
 ```
-flo.py        entry (--test/--doctor/--clean/--version)   core.py     dictation, narration, hotkeys (push-to-talk)
-stt.py        engine + model selection                    store.py    SQLite: settings, dictionary, snippets, history, stats, preferences
-cleanup.py    local MLX LLM cleanup (grammar/filler)       learning.py correction watcher + preference diff logic
-permissions.py macOS Accessibility/mic                     server.py   Flask dashboard API
-app.py        menu-bar app (rumps) + single-instance lock  overlay.py  floating recording pill
-console_bridge.py  dormant voice-command bridge            install.sh  installer (Flo.app + login agent)
-static/index.html  the dashboard (self-contained HTML/CSS/JS)
-Scripts/ (from the abandoned Swift attempt — ignore)       tests/  (96 tests)
+flo.py        entry (--test/--doctor/--clean/--version)
+core.py       dictation, narration, hotkeys, silence gate, degenerate guard
+stt.py        engine + model selection
+store.py      SQLite: settings, dictionary, snippets, history, stats, preferences
+cleanup.py    local MLX LLM cleanup (system prompt + 4 few-shot examples)
+learning.py   correction watcher + preference diff logic
+permissions.py macOS Accessibility/mic checks (all failures are logged)
+server.py     Flask dashboard API
+app.py        menu-bar app (rumps) + single-instance lock
+overlay.py    floating recording pill (repositions per-show, follows the cursor's screen)
+console_bridge.py  dormant voice-command bridge (Brandon's; unused)
+static/index.html  the dashboard
+tests/        96 tests
 ```
-Settings live in `flo.db` after first run (`config.toml` only seeds it once).
+Settings live in `flo.db` after first run; `config.toml` only seeds it once.
 
-## Next steps (in priority order)
-1. **Verify the core loop live** — grant Accessibility (already covered via the `uv`
-   entry), then hold Right Option in TextEdit and speak. Confirm text appears.
-2. **Verify AI cleanup** — `uv run flo.py --clean "um so we should uh meet tuesday
-   actually make that friday"`. First run downloads the model (~1.7 GB). Judge quality;
-   if the 3B model disappoints, bump `cleanup.DEFAULT_MODEL` or add an optional Claude
-   Haiku path (off by default).
-3. **Verify learning** — dictate, fix a word Flo typed, check it lands in the Dictionary.
-4. Optional: install a Premium neural voice for narration (Settings banner explains).
-5. Roadmap ideas: per-app writing styles, streaming injection, a "Learned preferences"
-   management view in the dashboard, shared vocabulary with other tools.
+## Next steps
+1. `./install.sh --app --login`, then confirm dictation still works with no
+   terminal open. Different execution path; depends on the `uv` Accessibility grant.
+2. Install a Premium/Enhanced voice, select it in Settings, verify Option + S.
+3. Update `README.md` (still describes the pre-verification project and the old
+   repo name).
+4. Delete the bogus `coms` entry from the Dictionary if still present.
+
+## Known rough edges
+- Narrate is bound to `<alt>+s`, which in pynput means EITHER Option key, not
+  Right Option as the docs claim.
+- `flo.db` holds a stale `hotkey_dictate` = `<ctrl>+<alt>+d` from the Walnut
+  era. Appears unused (dictation is a held key) but it is dead config.
+- `Ctrl+Alt+C` still triggers Brandon's dormant MegaMind console bridge.
+- Ctrl+C at shutdown prints a leaked-semaphore warning from multiprocessing.
+  Cosmetic.
+- During tests, a pynput listener thread can die with
+  `KeyError: 'AXIsProcessTrusted'` — a pyobjc lazy-import race. Harmless in
+  tests; could in principle cause a rare "hotkeys dead at startup" bug.
 
 ## Repo state
-- `origin` = `https://github.com/alexsisk25/flo.git` (yours, private) — push here.
-- `upstream` = `https://github.com/Bjepp77/walnut.git` (Brandon's) — pull his fixes from
-  here, never push. `git fetch upstream && git merge upstream/main` when you want them.
-- gh CLI is authed as `alexsisk25`. All work through the Cowork handoff is pushed.
-
-## What a Cowork session can and cannot do here
-Cowork reaches this folder through a file bridge, not a shell on your Mac. It can read
-and edit these files, commit, and push. It **cannot** run `flo.py`, download the cleanup
-model, or use your mic — those need Terminal on the Mac. So the three open verifications
-below are yours to run; paste the output back into the session and Cowork fixes whatever
-breaks.
+- `origin` = `https://github.com/alexsisk25/flo-ai.git` (yours, private).
+- `upstream` = `https://github.com/Bjepp77/walnut.git` (Brandon's; pull only).
+- `flo.db` and `flo.db-*` are gitignored. Two WAL files briefly slipped into
+  one commit and were untracked in `763f189`.
