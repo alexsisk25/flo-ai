@@ -7,8 +7,15 @@ wrote, it diffs your change and learns:
   - a phrase you always cut -> a 'phrase_cut' preference
 
 The pure diff logic below has no macOS dependencies and is unit-tested. The
-CorrectionWatcher reads the focused field via the Accessibility API (best-effort;
-some apps expose nothing) and is exercised manually.
+CorrectionWatcher reads the focused field via the Accessibility API and is
+exercised manually.
+
+Electron apps (Claude, Slack, VS Code, Notion, Discord) keep their accessibility
+tree switched off until an assistive client asks for it, so the naive read
+returns nothing and learning appears to work only in native apps. Flo now sets
+the private AXManualAccessibility attribute on the owning process and retries,
+which is the documented way to wake Chromium accessibility up. When a field
+still exposes no text, that is now logged rather than silently ignored.
 """
 
 import re
@@ -144,9 +151,46 @@ def preferences(produced: str, edited: str) -> list[tuple[str, str, str]]:
 # ------------------------------------------------------------ Accessibility read
 
 _read_warned: list = []
+_ax_enabled: set = set()     # pids we have already asked to expose a11y
 
 
-def read_focused_text() -> str | None:
+def _enable_electron_accessibility(pid: int) -> bool:
+    """Ask an Electron/Chromium app to build its accessibility tree.
+
+    Chromium keeps accessibility off until an assistive client asks for it, and
+    Electron exposes that switch as the private `AXManualAccessibility`
+    attribute on the application element. Without this, the focused field in
+    apps like Claude, Slack, VS Code and Notion reports no value at all, so the
+    learning loop silently only ever worked in native apps like TextEdit.
+    Set once per process; harmless on native apps, which ignore it.
+    """
+    if pid in _ax_enabled:
+        return False
+    _ax_enabled.add(pid)
+    try:
+        from ApplicationServices import (AXUIElementCreateApplication,
+                                         AXUIElementSetAttributeValue)
+        app = AXUIElementCreateApplication(pid)
+        AXUIElementSetAttributeValue(app, "AXManualAccessibility", True)
+        log(f"asked pid {pid} to expose its accessibility tree "
+            "(Electron/Chromium apps need this)")
+        return True
+    except Exception as e:
+        log(f"could not enable accessibility for pid {pid}: "
+            f"{type(e).__name__}: {e}")
+        return False
+
+
+def _frontmost_pid() -> int | None:
+    try:
+        import AppKit
+        app = AppKit.NSWorkspace.sharedWorkspace().frontmostApplication()
+        return int(app.processIdentifier()) if app else None
+    except Exception:
+        return None
+
+
+def read_focused_text(_retry: bool = True) -> str | None:
     """The text of the currently focused UI element, via the Accessibility API.
     Returns None for secure fields or when the app exposes nothing."""
     try:
@@ -158,12 +202,24 @@ def read_focused_text() -> str | None:
         err, focused = AXUIElementCopyAttributeValue(
             system, kAXFocusedUIElementAttribute, None)
         if err != 0 or focused is None:
+            if _retry:
+                pid = _frontmost_pid()
+                if pid and _enable_electron_accessibility(pid):
+                    time.sleep(0.3)      # let the tree get built
+                    return read_focused_text(_retry=False)
             return None
         rerr, role = AXUIElementCopyAttributeValue(focused, kAXRoleAttribute, None)
         if role == "AXSecureTextField":
             return None
         verr, value = AXUIElementCopyAttributeValue(focused, kAXValueAttribute, None)
         if verr != 0 or not isinstance(value, str):
+            if _retry:
+                pid = _frontmost_pid()
+                if pid and _enable_electron_accessibility(pid):
+                    time.sleep(0.3)
+                    return read_focused_text(_retry=False)
+            log(f"focused element (role {role!r}) exposes no readable text; "
+                "learning cannot see edits in this app")
             return None
         return value
     except Exception as e:
