@@ -249,18 +249,34 @@ Flo is installed.  Start it with:
 
     uv run flo.py
 
-Then grant macOS permissions ONCE (Flo cannot do this for you):
+Then grant macOS permissions ONCE (Flo cannot do this for you).
 
-  1. Accessibility     System Settings → Privacy & Security →
-                       Accessibility → add your Terminal
-                       (needed for global hotkeys + typing into apps)
-  2. Microphone        macOS asks the first time you dictate → Allow
-  3. Input Monitoring  only if hotkeys still don't fire
+ACCESSIBILITY — needed for global hotkeys and for typing into other apps.
+macOS grants this to the program that RUNS the code, not to "Flo", so you
+need TWO entries in System Settings -> Privacy & Security -> Accessibility:
 
-Restart Flo after granting Accessibility.
+  a) Terminal.app        for running \`uv run flo.py\` by hand.
+                         Quit Terminal with Cmd+Q and reopen it afterwards —
+                         the permission is only read when a process starts.
+  b) the \`uv\` binary     for the login agent, which runs Flo at startup.
+                         Run \`which uv\` (usually /opt/homebrew/bin/uv), then
+                         click +, press Cmd+Shift+G, and paste that path.
+
+  Heads up: \`brew upgrade uv\` replaces that binary and can silently void the
+  grant. If the hotkey ever stops firing for no reason, re-add it here.
+
+MICROPHONE — macOS asks the first time the menu-bar app starts. Click Allow.
+  If you are never asked, check that pyobjc-framework-avfoundation is
+  installed; without it Flo cannot ask, and it will record pure silence while
+  looking like it is working.
+
+INPUT MONITORING — only if hotkeys still do not fire.
+
+Check both at any time with:  uv run flo.py --doctor
+It reports Accessibility and Microphone, and exits non-zero if either is wrong.
 
   Hold Right Option   push-to-talk: hold, speak, release — types into any app
-  Right Option + S    narrate the selected text in any app
+  Option + S          narrate the selected text in any app
   Dashboard → http://127.0.0.1:8765
 ──────────────────────────────────────────────────────────────
 DONE
