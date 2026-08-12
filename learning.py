@@ -173,7 +173,8 @@ class CorrectionWatcher:
 
     def __init__(self):
         self._timer = None
-        self._baseline = None
+        self._learned_from = None
+        self._last_seen = None
         self._produced = ""
 
     def enabled(self) -> bool:
@@ -184,7 +185,9 @@ class CorrectionWatcher:
             return
         self.stop()
         self._produced = produced_text
-        self._baseline = read_focused_text()
+        start = read_focused_text()
+        self._learned_from = start   # last state we have already learned from
+        self._last_seen = start      # last state we saw, settled or not
         self._elapsed = 0.0
         self._window = window
         self._tick()
@@ -194,14 +197,41 @@ class CorrectionWatcher:
         self._elapsed += 1.0
         if self._elapsed < self._window:
             self._timer = threading.Timer(1.0, self._tick)
-            self._timer.daemon = True
-            self._timer.start()
+        else:
+            # One last look after the window, so an edit finished right at the
+            # boundary still counts.
+            self._timer = threading.Timer(1.5, self._flush)
+        self._timer.daemon = True
+        self._timer.start()
 
     def _sample(self) -> None:
+        """Learn only from text that has stopped changing.
+
+        The naive version learned from every poll, which meant typing "comps"
+        one letter at a time taught Flo that "coms" was a word. A correction is
+        only real once the user has stopped typing it, so require the field to
+        look identical on two consecutive samples before committing.
+        """
         current = read_focused_text()
-        if current is None or current == self._baseline:
+        if current is None:
             return
-        base = self._baseline if self._baseline is not None else self._produced
+        if current != self._last_seen:
+            self._last_seen = current      # still mid-edit; wait for it to settle
+            return
+        self._commit(current)
+
+    def _flush(self) -> None:
+        self._timer = None
+        current = read_focused_text()
+        if current is not None:
+            self._commit(current)
+
+    def _commit(self, current: str) -> None:
+        """Diff against the last state we learned from and record what changed."""
+        if current == self._learned_from:
+            return
+        base = (self._learned_from if self._learned_from is not None
+                else self._produced)
         try:
             for frm, to in corrections(base, current):
                 store.words_add(to)
@@ -211,7 +241,7 @@ class CorrectionWatcher:
                 log(f"learned preference: {kind} {frm!r} -> {to!r}")
         except Exception as e:
             log(f"sample failed: {type(e).__name__}: {e}")
-        self._baseline = current
+        self._learned_from = current
 
     def stop(self) -> None:
         if self._timer:
