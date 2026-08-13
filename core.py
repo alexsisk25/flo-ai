@@ -488,6 +488,24 @@ class Core:
             set_clipboard(saved)   # never strand the transcript in the clipboard
 
 
+# macOS ANSI virtual keycodes for the letter keys.
+#
+# Option is a TEXT-COMPOSITION modifier on macOS: Option+S does not deliver "s",
+# it delivers "ß" (and Option+E, Option+N etc. arm dead keys). pynput's
+# GlobalHotKeys matches on the composed character, so a binding like "<alt>+s"
+# binds without error, reports itself active, and is structurally incapable of
+# ever firing. Virtual keycodes are unaffected by the modifier, so an Option
+# chord has to be matched on vk instead.
+_MAC_VK = {
+    "a": 0, "s": 1, "d": 2, "f": 3, "h": 4, "g": 5, "z": 6, "x": 7, "c": 8,
+    "v": 9, "b": 11, "q": 12, "w": 13, "e": 14, "r": 15, "y": 16, "t": 17,
+    "o": 31, "u": 32, "i": 34, "p": 35, "l": 37, "j": 38, "k": 40, "n": 45,
+    "m": 46,
+}
+
+_ALT_LETTER = re.compile(r"^<alt>\+([a-z])$", re.IGNORECASE)
+
+
 class HotkeyManager:
     """Global hotkeys.
 
@@ -507,7 +525,11 @@ class HotkeyManager:
         self.listener = None      # GlobalHotKeys: narrate + command
         self.ptt = None           # raw Listener: push-to-talk dictation
         self._alt_down = False
+        self._any_alt = False       # either Option key, for narrate chords
         self._chord = False
+        self._speak_vk = None       # set in start() for <alt>+letter bindings
+        self._on_speak = lambda: None
+        self._last_speak = 0.0
         self._dictating = False
         self._timer = None
 
@@ -528,9 +550,19 @@ class HotkeyManager:
         def on_command():
             threading.Thread(target=self.core.toggle_command, daemon=True).start()
 
+        # An <alt>+letter combo cannot work through GlobalHotKeys on macOS (see
+        # _MAC_VK above), so handle it in the raw listener and keep it out of
+        # the combo map entirely rather than registering a binding that lies.
+        self._speak_vk = None
+        combos = {speak: on_speak, command: on_command}
+        m = _ALT_LETTER.match(speak or "")
+        if m and m.group(1).lower() in _MAC_VK:
+            self._speak_vk = _MAC_VK[m.group(1).lower()]
+            self._on_speak = on_speak
+            combos.pop(speak, None)
+
         try:
-            self.listener = keyboard.GlobalHotKeys({speak: on_speak,
-                                                    command: on_command})
+            self.listener = keyboard.GlobalHotKeys(combos)
             self.listener.start()
         except Exception as e:
             # e.g. the combos collide, or macOS refuses the tap
@@ -570,6 +602,14 @@ class HotkeyManager:
         Key = keyboard.Key
 
         def on_press(key):
+            if key in (Key.alt, Key.alt_l, Key.alt_r):
+                self._any_alt = True
+            elif (self._any_alt and self._speak_vk is not None
+                    and getattr(key, "vk", None) == self._speak_vk):
+                now = time.monotonic()
+                if now - self._last_speak > 0.4:     # ignore key repeat
+                    self._last_speak = now
+                    self._on_speak()
             if key == Key.alt_r:
                 if not self._alt_down:
                     self._alt_down = True
@@ -587,6 +627,8 @@ class HotkeyManager:
                                      daemon=True).start()
 
         def on_release(key):
+            if key in (Key.alt, Key.alt_l, Key.alt_r):
+                self._any_alt = False
             if key == Key.alt_r:
                 self._alt_down = False
                 if self._timer:
