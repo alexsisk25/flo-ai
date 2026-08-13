@@ -64,6 +64,8 @@ def _iter_files(root: Path):
             return
         if any(part in SKIP_DIRS or part.startswith(".") for part in p.parts):
             continue
+        if p.name.startswith("~$"):
+            continue      # Word/Excel lock file, not a document
         if p.is_file() and p.suffix.lower() in READABLE:
             seen += 1
             yield p
@@ -125,8 +127,14 @@ def candidates(text: str) -> Counter:
     return found
 
 
-def scan(folder: str, min_count: int = 3, limit: int = 200) -> list[tuple[str, int]]:
-    """Return [(word, count)] worth adding, most frequent first."""
+def scan(folder: str, min_count: int = 3,
+         limit: int = 200) -> tuple[list[tuple[str, int]], list[tuple[str, int]]]:
+    """Return (accepted, near_misses), each [(word, count)] most frequent first.
+
+    A scan that finds nothing should say why. On a small corpus almost nothing
+    clears a frequency bar, and reporting "nothing found" without showing the
+    near misses just leaves you guessing whether the tool works.
+    """
     root = Path(folder).expanduser()
     if not root.is_dir():
         raise NotADirectoryError(f"{root} is not a folder")
@@ -140,9 +148,10 @@ def scan(folder: str, min_count: int = 3, limit: int = 200) -> list[tuple[str, i
         print("[corpus] nothing readable here. Looked for: "
               + ", ".join(sorted(READABLE)))
     known = {w["word"].lower() for w in store.words_list()}
-    ranked = [(w, n) for w, n in totals.most_common()
-              if n >= min_count and w.lower() not in known]
-    return ranked[:limit]
+    fresh = [(w, n) for w, n in totals.most_common() if w.lower() not in known]
+    accepted = [(w, n) for w, n in fresh if n >= min_count]
+    near = [(w, n) for w, n in fresh if n < min_count]
+    return accepted[:limit], near[:limit]
 
 
 def apply(words: list[str]) -> int:

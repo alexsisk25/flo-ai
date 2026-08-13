@@ -150,6 +150,9 @@ def main() -> int:
                         help="scan a folder of your own writing for names and "
                              "jargon to add to the Dictionary (prints a "
                              "proposal; add --apply to save it)")
+    parser.add_argument("--min-count", type=int, default=3, metavar="N",
+                        help="with --learn-from, how many times a word must "
+                             "appear to be proposed (default 3)")
     parser.add_argument("--apply", action="store_true",
                         help="with --learn-from, actually save the words")
     parser.add_argument("--version", action="version", version=f"Flo {VERSION}")
@@ -164,13 +167,26 @@ def main() -> int:
         import store
         store.init()
         try:
-            found = corpus.scan(args.learn_from)
+            found, near = corpus.scan(args.learn_from,
+                                      min_count=args.min_count)
         except NotADirectoryError as e:
             log(str(e))
             return 1
         if not found:
-            log("Nothing new found. Either the folder has no plain-text files, "
-                "or everything distinctive in it is already in your Dictionary.")
+            log(f"Nothing appeared at least {args.min_count} times.")
+            if near:
+                print(f"\nClosest candidates (below the --min-count "
+                      f"{args.min_count} cut-off):\n")
+                for word, n in near[:40]:
+                    print(f"  {n:5d}  {word}")
+                print("\nA small folder rarely repeats a term three times. "
+                      "Try --min-count 2,\nor point --learn-from at more of "
+                      "your writing.")
+            else:
+                print("\nNo name-like or jargon-like words at all. Either the "
+                      "folder has nothing\nreadable in it (.txt .md .docx "
+                      ".pdf), or everything distinctive is\nalready in your "
+                      "Dictionary.")
             return 0
         print(f"\n{len(found)} candidate word(s), most frequent first:\n")
         for word, n in found:

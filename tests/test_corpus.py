@@ -49,3 +49,20 @@ def test_scan_rejects_a_missing_folder():
     except NotADirectoryError:
         return
     raise AssertionError("expected NotADirectoryError")
+
+
+def test_word_lock_files_are_skipped(tmp_path):
+    """Word leaves ~$name.docx lock files everywhere. They are not documents,
+    and trying to unzip one raises BadZipFile."""
+    (tmp_path / "~$memo.docx").write_bytes(b"not a zip")
+    (tmp_path / "notes.md").write_text("The comps came from CoStar.")
+    accepted, near = corpus.scan(str(tmp_path), min_count=1)
+    assert ("CoStar", 1) in accepted
+
+
+def test_near_misses_are_reported_separately(tmp_path):
+    """A scan that finds nothing must be able to explain itself."""
+    (tmp_path / "a.md").write_text("The comps came from CoStar.")
+    accepted, near = corpus.scan(str(tmp_path), min_count=5)
+    assert accepted == []
+    assert ("CoStar", 1) in near
