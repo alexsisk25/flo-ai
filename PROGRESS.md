@@ -13,9 +13,9 @@ cloud, no API keys, no subscription, $0 to run.
 **Provenance:** forked from Brandon's `Bjepp77/walnut` (MIT), rebranded and
 extended.
 
-## Status — 2026-08-12: WORKING END TO END
-The core loop is verified live on device for the first time. Dictation,
-cleanup, and the learning loop have all been observed working.
+## Status — 2026-08-13: FEATURE COMPLETE, EVERYTHING VERIFIED ON DEVICE
+Every feature has now been observed working on the machine, not just in tests.
+There is no longer anything in this project that is "built but unproven".
 
 Verified working:
 - Push-to-talk dictation. Hold Right Option, speak, release, text is pasted
@@ -33,12 +33,15 @@ Verified working:
 - Silence gate and degenerate-transcript guard (see "Hard-won lessons").
 - Web dashboard at http://127.0.0.1:8765, 96 automated tests, installer.
 
-NOT yet verified:
-- **Narration** (Option + S). Never confirmed firing. Needs a Premium/Enhanced
-  system voice installed first; the system default is why `--doctor` warns.
-- **The login agent.** `./install.sh --app --login` has not been re-run since
-  the repo moved, so Flo currently only runs while `uv run flo.py` is open in
-  a terminal. This is the last step to it being a real app.
+- **Narration** (Option + S). Verified with the Nathan (Enhanced) voice. Reads
+  the current selection; press again to stop. See the Option-key lesson below.
+- **The login agent.** Installed and running (`com.flo.app`). Flo starts at
+  login, lives in the menu bar, needs no terminal open.
+- **Corpus learning** (`--learn-from FOLDER`). Seeds the Dictionary from writing
+  you have already done: reads .txt/.md/.docx (and .pdf if pypdf is present),
+  proposes names and jargon, saves only with `--apply`.
+
+110 automated tests pass.
 
 ## Hard-won lessons (do not re-learn these)
 
@@ -74,6 +77,16 @@ returned nothing in Claude, Slack, VS Code and Notion, and the learning loop
 looked like it only worked in native apps. The fix is to set the private
 `AXManualAccessibility` attribute on the owning process and retry (`f13a953`).
 Done once per pid; native apps ignore it.
+
+**Option is a text-composition modifier, so Option chords need keycodes.**
+Pressing Option+S on macOS does not deliver "s" — it delivers "ß" (verified
+live: `char='ß', vk=1`). pynput's `GlobalHotKeys` matches the composed
+character, so the `<alt>+s` narrate binding registered without error, logged
+"Hotkeys active", and was structurally incapable of ever firing. Narration was
+in the README, in the menu bar and in `--doctor` for the whole life of the
+project and had never once worked. `<alt>+letter` bindings now route to the raw
+listener and match on virtual keycode (`_MAC_VK` in core.py). Combos with other
+modifiers are fine, because Ctrl and Cmd suppress composition. Fixed in `16d1d03`.
 
 **macOS grants permission to the binary, not to "Flo".** Accessibility is
 needed twice: on **Terminal.app** for manual runs, and on the **`uv` binary**
@@ -117,12 +130,16 @@ tests/        96 tests
 Settings live in `flo.db` after first run; `config.toml` only seeds it once.
 
 ## Next steps
-1. `./install.sh --app --login`, then confirm dictation still works with no
-   terminal open. Different execution path; depends on the `uv` Accessibility grant.
-2. Install a Premium/Enhanced voice, select it in Settings, verify Option + S.
-3. Update `README.md` (still describes the pre-verification project and the old
-   repo name).
-4. Delete the bogus `coms` entry from the Dictionary if still present.
+Nothing is blocking. Flo works. What is left is optional:
+1. Delete the bogus `coms` entry from the Dictionary if still present (learned
+   from a half-typed correction before that bug was fixed).
+2. Seed the Dictionary properly. `--learn-from ~/Documents` found almost
+   nothing because Alex's real writing is not stored as files on the Mac. The
+   best source would be sent email; a one-time export to a scratch folder,
+   scanned with `--learn-from`, then deleted, would keep Flo itself fully local.
+3. Style preferences are learned but only from explicit corrections. Deriving
+   them from an existing corpus is designed but not built.
+4. Consider widening the learning window; 8s is tight for edits you notice late.
 
 ## Known rough edges
 - Narrate is bound to `<alt>+s`, which in pynput means EITHER Option key, not
