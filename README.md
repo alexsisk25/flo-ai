@@ -9,7 +9,7 @@
 Local voice dictation and narration for macOS — the whole loop, on your own
 machine. No cloud, no API keys, no account, no subscription.
 
-Hold **Right Option** to dictate into any app · **Right Option + S** to hear any selection read aloud
+Hold **Right Option** to dictate into any app · **Option + S** to hear any selection read aloud
 
 <sub>MIT licensed · Apple Silicon & Intel · Python 3.12+ · ~1.6 GB model, downloaded once</sub>
 
@@ -30,17 +30,17 @@ Hold **Right Option** to dictate into any app · **Right Option + S** to hear an
 Commercial dictation tools are excellent and they all ship your voice somewhere
 else. Flo does the same job with Whisper running on your own silicon. Your
 audio never leaves the machine, there is nothing to sign up for, and the whole
-thing is about 1,300 lines of Python you can read in an afternoon.
+thing is about 2,600 lines of Python you can read in an afternoon.
 
-It also reads back. Select a paragraph in any app, press `⌃⌥S`, and macOS's own
+It also reads back. Select a paragraph in any app, press `⌥S`, and macOS's own
 speech engine narrates it. Two hotkeys, one loop: **your words in, your words
 out.**
 
 ## Install
 
 ```sh
-git clone https://github.com/Bjepp77/flo.git
-cd flo
+git clone https://github.com/alexsisk25/flo-ai.git
+cd flo-ai
 ./install.sh --app --login
 ```
 
@@ -61,17 +61,35 @@ The Flo icon appears in the menu bar. The dashboard lives at
 > **First run downloads the speech model** — about 1.6 GB on Apple Silicon,
 > 460 MB on Intel. Once, ever. The dashboard shows a banner while it works.
 
-### Grant one permission
+### Grant two permissions
 
 macOS requires **Accessibility** for global hotkeys and for typing into other
-apps. Flo cannot grant it for you.
+apps. Flo cannot grant it for you, and the confusing part is that macOS grants
+it to *the program that runs the code*, not to something called "Flo". So there
+are two entries, not one:
 
-> System Settings → Privacy & Security → Accessibility → add **Flo** → restart Flo
+> System Settings → Privacy & Security → Accessibility
+>
+> 1. **Terminal.app** — for running `uv run flo.py` by hand. Quit Terminal with
+>    `⌘Q` and reopen it afterwards; the permission is only read at process start,
+>    so a new tab is not enough.
+> 2. **the `uv` binary** — for the login agent. Run `which uv` (usually
+>    `/opt/homebrew/bin/uv`), then click `+`, press `⌘⇧G`, and paste that path.
 
 Without it the hotkeys register and silently never fire — so Flo checks, and
 tells you, in the menu bar and on the dashboard. It will not pretend to work.
 
-The microphone prompt appears the first time you dictate. Click Allow.
+> **`brew upgrade uv` replaces that binary and can silently void the grant.** If
+> the hotkey ever stops firing for no apparent reason, re-add it here first.
+
+**Microphone** is prompted the first time the menu-bar app starts. Click Allow.
+If you are never asked, check that `pyobjc-framework-avfoundation` is installed:
+without it Flo cannot ask, macOS never prompts, and the mic returns pure silence
+while everything *looks* like it is working. Whisper then hallucinates words out
+of that silence. This shipped as a real bug and cost weeks to find.
+
+Run `uv run flo.py --doctor` at any time. It reports both permissions and exits
+non-zero if either is wrong.
 
 ## It fits itself to your Mac
 
@@ -95,13 +113,61 @@ Flo stores one canonical model name and translates it per engine, so the same
 | Hotkey | What happens |
 |:--|:--|
 | **Hold Right Option** | Push-to-talk. Chime. Hold and speak. Release. Your words are typed into the frontmost app. |
-| **Right Option + S** | Whatever text you have selected, anywhere, is read aloud. Press again to stop. |
+| **Option + S** | Whatever text you have selected, anywhere, is read aloud. Press again to stop. |
 | `⌃⌥C` | Chime. Speak. Chime. The phrase goes to the MegaMind Console instead of being typed (see Voice commands below). **Dormant** — needs a Console you don't have yet; harmless if pressed. |
 
-Dictation is **push-to-talk** (hold the key while speaking), not a toggle. It's on
-the **Right Option** key, held; narration is **Right Option + S**. Narration and the
-console command are re-bindable on the **Shortcuts** page; the push-to-talk dictate key
-is fixed to Right Option.
+Dictation is **push-to-talk** (hold the key while speaking), not a toggle, and it
+is fixed to the **Right Option** key. Narration is bound to `<alt>+s`, which means
+**either** Option key — left or right. Narration and the console command are
+re-bindable on the **Shortcuts** page.
+
+## It writes, it doesn't just transcribe
+
+Raw dictation reads like dictation. You say *"um so we should uh meet tuesday
+actually make that friday"* and a transcriber faithfully gives you exactly that.
+Flo runs the transcript through a small instruction-tuned model
+(`Qwen2.5-3B-Instruct-4bit`) on your own GPU before typing it:
+
+| You say | Flo types |
+|:--|:--|
+| um so we should uh meet tuesday actually make that friday | We should meet on Friday. |
+| let's meet Tuesday, I mean Wednesday at the office | Let's meet Wednesday at the office. |
+| the deal was around two point one no wait two point four cap rate you know | The deal was around a 2.4 cap rate. |
+
+It fixes grammar and punctuation, strips filler, resolves self-corrections so
+the reader can't tell you changed your mind, and writes spoken numbers as
+digits. It does **not** summarise, embellish, or answer you — it only cleans
+the words that are there.
+
+This costs nothing. It is a local model on your own silicon, not an API call.
+It downloads once (~1.7 GB) and everything **fails safe**: if the model isn't
+ready or anything throws, you get the raw transcript rather than nothing.
+
+Turn it off in **Settings** if you want strict verbatim capture.
+
+## It learns how you write
+
+Flo watches the field for eight seconds after it types. If you fix something,
+it diffs your edit and learns:
+
+- **a corrected spelling** → added to your Dictionary, so Whisper gets it right
+  next time. Fix `comms` to `comps` once and it sticks.
+- **a recurring word swap or a phrase you always cut** → recorded as a
+  preference and fed into the cleanup model's prompt on every future dictation,
+  so the output drifts toward how *you* write rather than toward generic
+  clean English.
+
+Two deliberate constraints. It only learns from text that has stopped changing,
+so typing a correction letter by letter doesn't teach it the half-finished
+states. And a single edit becomes a spelling entry only if it *looks* like a
+spelling fix; swapping in a genuinely different word is treated as a style
+preference, which needs to recur before it counts.
+
+> **Electron apps need a nudge.** Chromium keeps its accessibility tree switched
+> off until an assistive client asks for it, so the learning loop appears to work
+> only in native apps. Flo sets the private `AXManualAccessibility` attribute on
+> the owning process and retries, which wakes it up. Verified working in the
+> Claude desktop app.
 
 ## Make the narration sound human
 
@@ -192,8 +258,10 @@ Everything is local. There is no server, no telemetry, and no account.
   default, configurable, `0` to keep none.
 - The dashboard binds `127.0.0.1` only, and refuses any request whose `Host`
   isn't loopback, so a web page you visit can't reach it.
-- The single network call Flo ever makes is downloading the Whisper model
-  from Hugging Face, once.
+- The only network calls Flo ever makes are the one-time model downloads from
+  Hugging Face: Whisper (~1.6 GB) and, if cleanup is on, Qwen2.5-3B (~1.7 GB).
+  After that it never touches the network again. No LLM API is ever called —
+  the cleanup model runs on your own GPU, so it costs nothing to run.
 
 ## When something breaks
 
@@ -216,7 +284,7 @@ Logs go to `/tmp/flo.log` when Flo starts at login.
 ## Development
 
 ```sh
-uv run --group dev pytest -q     # 83 tests
+uv run --group dev pytest -q     # 96 tests
 ```
 
 Every test in `tests/` is a bug Flo actually shipped: a dictionary fix-up
@@ -231,10 +299,11 @@ because nothing ever did that.
 ```
 flo.py    entry point, --test, --doctor    core.py         dictation, narration, hotkeys
 stt.py       engine + model selection         store.py        SQLite: settings, history, stats
-permissions.py  macOS Accessibility           server.py       Flask API
+cleanup.py   local LLM transcript cleanup     learning.py     learns from your corrections
+permissions.py  macOS Accessibility + mic     server.py       Flask API
 app.py       menu bar app (rumps)             overlay.py      the floating recording pill
 install.sh   installer                        static/index.html  the dashboard
-console_bridge.py   voice commands → MegaMind Console
+console_bridge.py   voice commands → MegaMind Console (dormant, inherited)
 ```
 
 `config.toml` is read once, on first run, to seed the database. After that the

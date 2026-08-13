@@ -27,7 +27,9 @@ Verified working:
   `"Let's meet Tuesday, I mean Wednesday at the office."` → `"Let's meet
   Wednesday at the office."`
 - Learning loop. Correcting a word Flo typed adds the correct spelling to the
-  Dictionary automatically (observed: `comms -> comps`).
+  Dictionary automatically (observed: `comms -> comps`). Works in native apps
+  AND in Electron apps (verified in the Claude desktop app) — see the Electron
+  lesson below.
 - Silence gate and degenerate-transcript guard (see "Hard-won lessons").
 - Web dashboard at http://127.0.0.1:8765, 96 automated tests, installer.
 
@@ -65,6 +67,13 @@ speak" pattern gets wrongly rejected, switch to measuring the loudest stretch.
 `except Exception: pass` handlers in this codebase, and it should stay that
 way. The 96 tests pass just as happily with a broken environment as a working
 one — they cover logic, not the machine.
+
+**Electron apps hide their text until asked.** Chromium keeps its accessibility
+tree switched off until an assistive client requests it, so `read_focused_text()`
+returned nothing in Claude, Slack, VS Code and Notion, and the learning loop
+looked like it only worked in native apps. The fix is to set the private
+`AXManualAccessibility` attribute on the owning process and retry (`f13a953`).
+Done once per pid; native apps ignore it.
 
 **macOS grants permission to the binary, not to "Flo".** Accessibility is
 needed twice: on **Terminal.app** for manual runs, and on the **`uv` binary**
