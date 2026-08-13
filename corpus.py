@@ -14,6 +14,7 @@ saves. A dictionary stuffed with junk makes Whisper worse, not better, because
 every entry is fed to the model as a hint.
 """
 
+import os
 import re
 import xml.etree.ElementTree as ET
 import zipfile
@@ -58,17 +59,26 @@ _STOP = {
 
 
 def _iter_files(root: Path):
+    """Walk the tree, pruning skipped directories as we go.
+
+    Path.rglob() descends into everything and builds the whole list before you
+    can filter it, so a folder containing a node_modules or a Time Machine
+    backup simply hangs. os.walk lets us delete directories from `dirs`
+    in place, which stops the walk from entering them at all.
+    """
     seen = 0
-    for p in sorted(root.rglob("*")):
-        if seen >= MAX_FILES:
-            return
-        if any(part in SKIP_DIRS or part.startswith(".") for part in p.parts):
-            continue
-        if p.name.startswith("~$"):
-            continue      # Word/Excel lock file, not a document
-        if p.is_file() and p.suffix.lower() in READABLE:
-            seen += 1
-            yield p
+    for base, dirs, names in os.walk(root, topdown=True):
+        dirs[:] = [d for d in dirs
+                   if d not in SKIP_DIRS and not d.startswith(".")]
+        for name in sorted(names):
+            if seen >= MAX_FILES:
+                return
+            if name.startswith(".") or name.startswith("~$"):
+                continue      # dotfile, or a Word/Excel lock file
+            p = Path(base) / name
+            if p.suffix.lower() in READABLE:
+                seen += 1
+                yield p
 
 
 _W_NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"

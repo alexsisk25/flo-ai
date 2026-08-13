@@ -66,3 +66,19 @@ def test_near_misses_are_reported_separately(tmp_path):
     accepted, near = corpus.scan(str(tmp_path), min_count=5)
     assert accepted == []
     assert ("CoStar", 1) in near
+
+
+def test_walk_prunes_skipped_directories(tmp_path):
+    """rglob descends into everything before you can filter it, which hangs on
+    a folder containing node_modules or a backup. The walk must not enter them."""
+    junk = tmp_path / "node_modules" / "deep"
+    junk.mkdir(parents=True)
+    for i in range(50):
+        (junk / f"f{i}.md").write_text("Yardi Yardi Yardi CoStar CoStar CoStar")
+    notes = tmp_path / "notes"
+    notes.mkdir()
+    (notes / "memo.md").write_text("The comps came from CoStar.")
+    accepted, near = corpus.scan(str(tmp_path), min_count=1)
+    words = dict(accepted)
+    assert words.get("CoStar") == 1      # only the one in notes/, not the 150 in junk
+    assert "Yardi" not in words
