@@ -146,6 +146,12 @@ def main() -> int:
     parser.add_argument("--clean", metavar="TEXT",
                         help="run the local AI cleanup on TEXT and print it "
                              "(downloads the cleanup model on first use)")
+    parser.add_argument("--learn-from", metavar="FOLDER",
+                        help="scan a folder of your own writing for names and "
+                             "jargon to add to the Dictionary (prints a "
+                             "proposal; add --apply to save it)")
+    parser.add_argument("--apply", action="store_true",
+                        help="with --learn-from, actually save the words")
     parser.add_argument("--version", action="version", version=f"Flo {VERSION}")
     args = parser.parse_args()
 
@@ -153,6 +159,32 @@ def main() -> int:
         return doctor()
     if args.test:
         return self_test()
+    if args.learn_from:
+        import corpus
+        import store
+        store.init()
+        try:
+            found = corpus.scan(args.learn_from)
+        except NotADirectoryError as e:
+            log(str(e))
+            return 1
+        if not found:
+            log("Nothing new found. Either the folder has no plain-text files, "
+                "or everything distinctive in it is already in your Dictionary.")
+            return 0
+        print(f"\n{len(found)} candidate word(s), most frequent first:\n")
+        for word, n in found:
+            print(f"  {n:5d}  {word}")
+        if not args.apply:
+            print("\nNothing saved. Re-run with --apply to add these to your "
+                  "Dictionary,\nor prune the list first — every entry is fed to "
+                  "Whisper as a hint, so\njunk in here makes transcription worse, "
+                  "not better.")
+            return 0
+        n = corpus.apply([w for w, _ in found])
+        log(f"Added {n} word(s) to the Dictionary.")
+        return 0
+
     if args.clean is not None:
         import store
         import cleanup
