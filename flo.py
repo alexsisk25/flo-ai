@@ -17,6 +17,7 @@ import argparse
 import subprocess
 import sys
 import time
+from pathlib import Path
 
 import numpy as np
 
@@ -38,7 +39,6 @@ def self_test() -> int:
     import soundfile as sf
 
     import store
-    from pathlib import Path
 
     tmp = Path(tempfile.mkdtemp(prefix="flo-selftest-"))
     if store.DB_PATH.exists():
