@@ -28,6 +28,32 @@ _AX_PANE = ("x-apple.systempreferences:com.apple.preference.security"
             "?Privacy_Accessibility")
 
 
+def _warm_pyobjc_constants() -> None:
+    """Resolve AXIsProcessTrusted on the main thread, before anything races.
+
+    pyobjc resolves framework constants lazily and its lookup table is not
+    thread-safe: two threads asking for the same constant at once make one of
+    them die with `KeyError: 'AXIsProcessTrusted'`. pynput's listener does
+    exactly that from its own thread as it starts up. In tests it shows as a
+    PytestUnhandledThreadExceptionWarning; in the app it would mean the hotkey
+    listener thread dying at launch, leaving Flo running and deaf — the failure
+    mode this project has already spent weeks on twice.
+
+    Touching it once here, at import, single-threaded, makes the race
+    impossible rather than unlikely.
+    """
+    try:
+        from ApplicationServices import AXIsProcessTrusted
+        AXIsProcessTrusted()
+    except Exception as e:
+        _warn(f"could not pre-resolve AXIsProcessTrusted "
+              f"({type(e).__name__}: {e}); a hotkey listener thread may race "
+              "on it at startup")
+
+
+_warm_pyobjc_constants()
+
+
 def accessibility_trusted() -> bool:
     """True if this process may post keyboard events and observe hotkeys."""
     try:
