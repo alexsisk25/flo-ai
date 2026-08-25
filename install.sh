@@ -14,6 +14,7 @@ set -euo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LABEL="com.flo.app"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
+LOGFILE="$HOME/Library/Logs/Flo/flo.log"
 PORT=8765
 
 bold() { printf "\033[1m%s\033[0m\n" "$1"; }
@@ -212,6 +213,9 @@ if [ "$WANT_LOGIN" = 1 ]; then
   bold "Installing login item…"
   retire_legacy
   mkdir -p "$HOME/Library/LaunchAgents"
+  # NOT /tmp: macOS purges it periodically, so the log vanishes exactly when
+  # you need it to explain something that happened last week.
+  mkdir -p "$HOME/Library/Logs/Flo"
   # Launch through `uv run` rather than .venv/bin/python: macOS binds
   # Accessibility permission to the launching binary, and uv keeps the
   # environment correct even after a dependency change.
@@ -232,14 +236,14 @@ if [ "$WANT_LOGIN" = 1 ]; then
   <key>WorkingDirectory</key><string>$REPO</string>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
-  <key>StandardOutPath</key><string>/tmp/flo.log</string>
-  <key>StandardErrorPath</key><string>/tmp/flo.log</string>
+  <key>StandardOutPath</key><string>$LOGFILE</string>
+  <key>StandardErrorPath</key><string>$LOGFILE</string>
 </dict>
 </plist>
 PLIST_EOF
   launchctl unload "$PLIST" 2>/dev/null || true
   launchctl load "$PLIST"
-  bold "Flo will start at login. Logs: /tmp/flo.log"
+  bold "Flo will start at login. Logs: $LOGFILE"
 fi
 
 cat <<'DONE'

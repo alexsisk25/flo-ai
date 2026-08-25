@@ -105,7 +105,17 @@ def doctor() -> int:
     log(f"Recordings:   keeping {store.get_valid('recordings_keep')}, "
         f"in {store.RECORDINGS}")
     log(f"Database:     {store.DB_PATH}")
-    log("Log:          /tmp/flo.log  (when started at login)")
+    logfile = Path.home() / "Library" / "Logs" / "Flo" / "flo.log"
+    if logfile.exists():
+        size = logfile.stat().st_size
+        log(f"Log:          {logfile}  ({size / 1024:.0f} KB)")
+    else:
+        log(f"Log:          {logfile}  (not created yet)")
+        legacy = Path("/tmp/flo.log")
+        if legacy.exists():
+            log("  → an old log is still at /tmp/flo.log. Re-run "
+                "./install.sh --login to move logging somewhere macOS "
+                "does not periodically delete.")
 
     voice = store.get_valid("tts_voice") or "(system default)"
     vstat = voices.status(store.get("tts_voice"), store.get("stt_language"))

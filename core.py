@@ -396,6 +396,7 @@ class Core:
                 return
             log(f"Transcribing {secs:.1f}s…")
             t0 = time.time()
+            t_stt = t_clean = 0.0
             try:
                 text = transcribe(
                     audio,
@@ -415,6 +416,7 @@ class Core:
                     f"words): {text[:60]!r}…")
                 play_sound(SOUND_ERROR)
                 return
+            t_stt = time.time() - t0
             text, used_snippet = Vocabulary.apply(text)
             # Local AI cleanup (grammar, filler, self-corrections). Snippets are
             # canned and commands are raw match phrases, so skip both.
@@ -423,11 +425,16 @@ class Core:
                 terms = [w["word"] for w in store.words_list()]
                 rules = [store.preference_instruction(p)
                          for p in store.preferences_top()]
+                t1 = time.time()
                 cleaned = cleanup.clean(text, terms=terms, rules=rules)
+                t_clean = time.time() - t1
                 if cleaned != text:
                     log(f"cleanup: {text!r} → {cleaned!r}")
                 text = cleaned
-            log(f"({time.time() - t0:.1f}s) → {text!r}")
+            # Break the time down. "It took 30 seconds" is not actionable;
+            # "transcribe 27s, cleanup 1s" says the models were paged out.
+            log(f"({time.time() - t0:.1f}s total: transcribe {t_stt:.1f}s, "
+                f"cleanup {t_clean:.1f}s) → {text!r}")
             if not text:
                 return
             audio_path = self._save_audio(audio)
