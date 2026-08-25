@@ -13,7 +13,7 @@ cloud, no API keys, no subscription, $0 to run.
 **Provenance:** forked from Brandon's `Bjepp77/walnut` (MIT), rebranded and
 extended.
 
-## Status — 2026-08-13: FEATURE COMPLETE, EVERYTHING VERIFIED ON DEVICE
+## Status — 2026-08-25: SHIPPED
 Every feature has now been observed working on the machine, not just in tests.
 There is no longer anything in this project that is "built but unproven".
 
@@ -41,7 +41,7 @@ Verified working:
   you have already done: reads .txt/.md/.docx (and .pdf if pypdf is present),
   proposes names and jargon, saves only with `--apply`.
 
-110 automated tests pass.
+121 automated tests pass.
 
 ## Hard-won lessons (do not re-learn these)
 
@@ -87,6 +87,35 @@ in the README, in the menu bar and in `--doctor` for the whole life of the
 project and had never once worked. `<alt>+letter` bindings now route to the raw
 listener and match on virtual keycode (`_MAC_VK` in core.py). Combos with other
 modifiers are fine, because Ctrl and Cmd suppress composition. Fixed in `16d1d03`.
+
+**Detect speech by structure, not by loudness.** The first silence gate used a
+fixed RMS threshold tuned on one machine. It broke in the field: after an input
+device change the same speech measured half as loud (0.0153 -> 0.0092) and real
+dictation started being rejected as silence. The gate now chops audio into 30ms
+frames and compares the 90th percentile against the 10th. Speech has loud
+syllables and quiet gaps; a silent mic — or a fan running LOUDER than your
+speech — is flat. Works at any gain. `51c06e7`, 8 tests.
+
+**Logs must outlive the week.** They went to `/tmp`, which macOS purges, so
+after 13 days of uptime there was no record of anything at all. Now
+`~/Library/Logs/Flo/flo.log`. Dictation timing is logged per stage
+(transcribe vs cleanup) because "it took 30 seconds" is not a diagnosis.
+
+**Long uptime pages the models out.** After ~13 days running, the first
+dictation took 20-30s: 3.3 GB of Whisper + Qwen weights had to fault back in
+from swap. Not a bug. `launchctl kickstart -k "gui/$(id -u)/com.flo.app"` fixes
+it. If it becomes routine, consider periodically touching the models.
+
+**A syntax check is not a name check.** `doctor()` shipped referencing `Path`
+while the only import sat inside `self_test()`. `ast.parse()` accepts that
+happily; it raises NameError only when the function runs, which for a
+background agent could be days later. `tools/check_module_imports.py` now
+catches the whole class, and is itself tested both ways.
+
+**pyobjc's lazy constant lookup is not thread-safe.** Two threads resolving the
+same constant race, and one dies with `KeyError: 'AXIsProcessTrusted'` — which
+is pynput's listener thread at startup. It would leave Flo running and deaf.
+`permissions.py` resolves it once at import, on the main thread.
 
 **macOS grants permission to the binary, not to "Flo".** Accessibility is
 needed twice: on **Terminal.app** for manual runs, and on the **`uv` binary**
@@ -142,16 +171,18 @@ Nothing is blocking. Flo works. What is left is optional:
 4. Consider widening the learning window; 8s is tight for edits you notice late.
 
 ## Known rough edges
-- Narrate is bound to `<alt>+s`, which in pynput means EITHER Option key, not
-  Right Option as the docs claim.
+- Narrate works with EITHER Option key, not just the right one. Documented.
 - `flo.db` holds a stale `hotkey_dictate` = `<ctrl>+<alt>+d` from the Walnut
-  era. Appears unused (dictation is a held key) but it is dead config.
+  era. Unused (dictation is a held key) but it is dead config.
 - `Ctrl+Alt+C` still triggers Brandon's dormant MegaMind console bridge.
 - Ctrl+C at shutdown prints a leaked-semaphore warning from multiprocessing.
   Cosmetic.
-- During tests, a pynput listener thread can die with
-  `KeyError: 'AXIsProcessTrusted'` — a pyobjc lazy-import race. Harmless in
-  tests; could in principle cause a rare "hotkeys dead at startup" bug.
+- Holding Option to press Option+S briefly starts and then cancels a dictation,
+  so you may hear the start chime. Working as designed; the 0.12s debounce in
+  `HotkeyManager._DEBOUNCE` is the number to change if it annoys.
+- Input level dropped by half between machines/devices. Worth checking System
+  Settings -> Sound -> Input if transcription accuracy ever degrades; the gate
+  no longer cares, but Whisper does.
 
 ## Repo state
 - `origin` = `https://github.com/alexsisk25/flo-ai.git` (yours, private).
