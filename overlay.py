@@ -17,6 +17,7 @@ STATIC = Path(__file__).resolve().parent / "static"
 
 W, H = 196, 54
 N_BARS = 5
+FULL_SCALE = 0.02        # frame RMS that lights every dot
 PILL_BG = (0.11, 0.11, 0.12, 0.96)
 DOT_DIM = (0.34, 0.34, 0.36, 1.0)
 DOT_LIT = (0.85, 0.85, 0.88, 1.0)
@@ -120,7 +121,11 @@ class Overlay:
         if now - self._last_level < 0.05 or not self._visible:
             return
         self._last_level = now
-        lit = min(N_BARS, int(min(1.0, rms * 14) * N_BARS + 0.5))
+        # Linear gain (rms * 14) was calibrated on a loud mic and reads almost
+        # dead on a quieter one — two dots of five while speaking normally,
+        # which looks like a fault. Square-root scaling matches how loudness is
+        # actually perceived and gives the quiet end far more of the range.
+        lit = min(N_BARS, int(min(1.0, (rms / FULL_SCALE) ** 0.5) * N_BARS + 0.5))
         AppHelper.callAfter(self._set_bars_main, lit)
 
     # ------------------------------------------------------------ main-thread

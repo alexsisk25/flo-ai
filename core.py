@@ -29,14 +29,44 @@ SOUND_ERROR = "/System/Library/Sounds/Basso.aiff"
 # decodes *something*. Historically that was the single word "You"; with the
 # mic live but nobody speaking it becomes a repetition loop. Cheaper and far
 # more legible to notice there is no speech and never call the model.
-# Measured on the dev machine, 5s holds:
-#   silent room : peak 0.1157, rms 0.0028
-#   normal speech: peak 0.1329, rms 0.0153
-# Peak is useless as a discriminator — a quiet room still produces sharp
-# transients (keyboard, desk knocks) that peak as high as speech does. Sustained
-# energy is what separates them, so gate on RMS alone. 0.005 sits ~1.8x above a
-# silent room and ~3x below normal speech.
-SILENCE_RMS = 0.005
+# A FIXED threshold was the wrong design and broke in the field: after a change
+# of input device the same speech measured half as loud (rms 0.0153 -> 0.0092)
+# and real dictation started being rejected as silence.
+#
+# What actually separates speech from a live-but-silent mic is not loudness, it
+# is STRUCTURE. Speech has loud syllables and quiet gaps, so its frame energies
+# span a wide range. A silent mic — or steady fan/traffic noise — sits flat at
+# whatever level the hardware gives you, however loud that happens to be.
+#
+# So: chop the audio into 30 ms frames, and compare a loud frame (90th
+# percentile) against the noise floor (10th percentile). Require BOTH a minimum
+# absolute level and that dynamic range. Either one alone is fooled — the
+# absolute floor by a quiet mic, the ratio by a room that happens to be varying.
+FRAME_MS = 30
+SPEECH_FLOOR = 0.004      # p90 frame energy below this is not speech at any gain
+SPEECH_RATIO = 2.0        # p90 must be this much above the noise floor
+
+
+def frame_levels(audio, sample_rate=SAMPLE_RATE, ms=FRAME_MS):
+    """RMS per short frame. Empty array if the clip is shorter than one frame."""
+    n = max(1, int(sample_rate * ms / 1000))
+    usable = (len(audio) // n) * n
+    if usable == 0:
+        return np.empty(0)
+    frames = audio[:usable].reshape(-1, n)
+    return np.sqrt((frames ** 2).mean(axis=1))
+
+
+def speech_present(audio, sample_rate=SAMPLE_RATE):
+    """(is_speech, metrics) — metrics are logged so a rejection can be argued with."""
+    levels = frame_levels(audio, sample_rate)
+    if levels.size == 0:
+        return False, {"p90": 0.0, "floor": 0.0, "ratio": 0.0}
+    p90 = float(np.percentile(levels, 90))
+    floor = float(np.percentile(levels, 10))
+    ratio = p90 / floor if floor > 1e-9 else float("inf")
+    ok = p90 >= SPEECH_FLOOR and ratio >= SPEECH_RATIO
+    return ok, {"p90": p90, "floor": floor, "ratio": ratio}
 
 # Whisper's other failure mode on noise: emitting one short fragment hundreds
 # of times ("Cluster 07212121212121…"). Left unchecked it reaches the cleanup
@@ -384,15 +414,15 @@ class Core:
             if secs < 0.4:
                 log("Recording too short, ignored.")
                 return
-            peak = float(np.max(np.abs(audio)))
-            rms = float(np.sqrt(np.mean(audio ** 2)))
-            # Always log the levels. The thresholds below are only as good as
-            # the room they were tuned in, and this is the data needed to tune
-            # them. A silent hold and a spoken one should be far apart here.
-            log(f"Level: peak {peak:.4f}, rms {rms:.4f}")
-            if rms < SILENCE_RMS:
-                log(f"Heard nothing (rms {rms:.4f} < {SILENCE_RMS}) — "
-                    "not transcribing.")
+            heard, m = speech_present(audio)
+            # Always log the numbers, so a wrong decision can be argued with
+            # rather than guessed at.
+            log(f"Level: p90 {m['p90']:.4f}, floor {m['floor']:.4f}, "
+                f"ratio {m['ratio']:.1f}x")
+            if not heard:
+                why = ("too quiet" if m["p90"] < SPEECH_FLOOR
+                       else "no speech pattern — flat, like room noise")
+                log(f"Heard nothing ({why}) — not transcribing.")
                 return
             log(f"Transcribing {secs:.1f}s…")
             t0 = time.time()
