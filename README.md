@@ -25,6 +25,15 @@ Hold **Right Option** to dictate into any app · **Option + S** to hear any sele
 
 ---
 
+## Credit
+
+Flo is a fork of **[walnut](https://github.com/Bjepp77/walnut)** by
+**[Brandon Jeppson](https://github.com/Bjepp77)**, who wrote the original
+local dictation and narration engine, the dashboard, the installer and the test
+suite. This fork rebrands it as Flo and adds the local AI cleanup layer, the
+learning loop, corpus-seeded vocabulary, and a set of fixes to the macOS
+permission, silence-detection and hotkey handling. MIT licensed, then and now.
+
 ## Why
 
 Commercial dictation tools are excellent and they all ship your voice somewhere

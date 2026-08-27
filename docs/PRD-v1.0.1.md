@@ -1,3 +1,8 @@
+> **Provenance:** this document was written by Brandon Jeppson for
+> [walnut](https://github.com/Bjepp77/walnut), the project Flo is forked
+> from. It is kept here as history. The product name reads "Flo" because
+> the rebrand renamed it; Brandon did not write requirements for Flo.
+
 # Flo v1.0.1 — The first-run path must actually run
 
 **Status:** shipped (v1.0.1)

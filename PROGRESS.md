@@ -185,7 +185,7 @@ Nothing is blocking. Flo works. What is left is optional:
   no longer cares, but Whisper does.
 
 ## Repo state
-- `origin` = `https://github.com/alexsisk25/flo-ai.git` (yours, private).
+- `origin` = `https://github.com/alexsisk25/flo-ai.git` (yours, PUBLIC).
 - `upstream` = `https://github.com/Bjepp77/walnut.git` (Brandon's; pull only).
 - `flo.db` and `flo.db-*` are gitignored. Two WAL files briefly slipped into
   one commit and were untracked in `763f189`.
